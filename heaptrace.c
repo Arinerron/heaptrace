@@ -273,6 +273,23 @@ void show_stats() {
 //////////
 
 
+static Dl_info ptrinfo;
+
+
+void describe_symbol(void *ptr) {
+    if (!OPT_VERBOSE) return;
+    dladdr(ptr, &ptrinfo);
+
+    if (ptrinfo.dli_sname && ptrinfo.dli_fname) {
+        // symbol found
+        log("\t(%s%s%s in %s%s%s)", BOLD(ptrinfo.dli_sname), BOLD(ptrinfo.dli_fname));
+    }
+}
+
+
+//////////
+
+
 static int caused_by_heapalloc = 1;
 
 
@@ -388,6 +405,7 @@ void exit(int status) {
 
 
 int main_hook(int argc, char **argv, char **envp) {
+    describe_symbol(orig_exit);
     int retval = main_orig(argc, argv, envp);
     show_stats();
     caused_by_heapalloc = 1;
