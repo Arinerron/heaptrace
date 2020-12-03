@@ -329,10 +329,30 @@ void *realloc(void *ptr, size_t size) {
 
 
 void exit(int status) {
-    log("%sFinished heaptrace. Statistics:\n", COLOR_LOG);
-    log("... total mallocs: %s%lu%s\n", COLOR_LOG_BOLD, MALLOC_COUNT, COLOR_LOG);
-    log("... total frees: %s%lu%s\n", COLOR_LOG_BOLD, FREE_COUNT, COLOR_RESET);
-    log("... total reallocs: %s%lu%s\n", COLOR_LOG_BOLD, REALLOC_COUNT, COLOR_RESET);
+    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
+
+    uint64_t unfreed_sum = 0;
+    Chunk cur_chunk;
+    for (int i = 0; i < MAX_CHUNKS; i++) {
+        cur_chunk = chunk_meta[i];
+        if (cur_chunk.state == STATE_MALLOC) {
+            log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+            unfreed_sum += cur_chunk.size;
+        }
+    }
+
+    if (unfreed_sum) log("%s------\n", COLOR_LOG);
+    log("Statistics:\n");
+    log("... total mallocs: %s%lu%s\n", BOLD(MALLOC_COUNT));
+    log("... total frees: %s%lu%s\n", BOLD(FREE_COUNT));
+    log("... total reallocs: %s%lu%s\n", BOLD(REALLOC_COUNT));
+
+    if (unfreed_sum) {
+        log("%s... total bytes lost: %s0x%lx%s\n", COLOR_ERROR, BOLD_ERROR(unfreed_sum));
+    }
+
+    log("%s", COLOR_RESET);
+
     orig_exit(status);
 }
 
@@ -345,5 +365,5 @@ void _init(void) {
     if (!orig_free) orig_free = dlsym(RTLD_NEXT, "free");
     if (!orig_realloc) orig_realloc = dlsym(RTLD_NEXT, "realloc");
     if (!orig_exit) orig_exit = dlsym(RTLD_NEXT, "exit");
-    log("%sInitialized heaptrace.%s\n", COLOR_LOG, COLOR_RESET);
+    log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
 }
