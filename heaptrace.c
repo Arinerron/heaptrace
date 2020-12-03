@@ -19,6 +19,8 @@
 
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
+#define COLOR_ADDR "\e[0;35m"
+#define COLOR_ADDR_BOLD "\e[1;35m"
 #define COLOR_ERROR "\e[0;31m"
 #define COLOR_ERROR_BOLD "\e[1;31m"
 #define COLOR_RESET "\e[0m"
@@ -27,6 +29,7 @@ static FILE *output_fd;
 
 #define log(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
+#define BOLD_ADDR(msg) COLOR_ADDR_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_ERROR(msg) COLOR_ERROR_BOLD, (msg), COLOR_ERROR // %s%d%s
 #define error(msg) log("%sheaptrace error: %s%s%s\n", COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET) 
 #define warn(msg) log("%s    |-- %swarning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET)
@@ -273,10 +276,8 @@ void show_stats() {
 //////////
 
 
-static Dl_info ptrinfo;
-
-
 void describe_symbol(void *ptr) {
+    Dl_info ptrinfo;
     if (!OPT_VERBOSE) return;
     dladdr(ptr, &ptrinfo);
 
@@ -303,10 +304,10 @@ void *malloc(size_t size) {
         warn("attempting a zero malloc");
     }
 
-    log("%s... #%s%lu%s: malloc(%s0x%02lx%s)\t%s", COLOR_LOG, BOLD(oid), BOLD(size), COLOR_RESET);
+    log("%s... %s#%lu%s: malloc(%s0x%02lx%s)\t%s", COLOR_LOG, BOLD_ADDR(oid), BOLD(size), COLOR_RESET);
     check_oid(oid, 1); // see if it's time to pause
     void *ptr = orig_malloc(size);
-    log("%s = %s0x%llx%s\n", COLOR_LOG, COLOR_LOG_BOLD, (long long unsigned int)ptr, COLOR_RESET);
+    log("%s =  %s0x%llx%s%s\n", COLOR_LOG, BOLD((long long unsigned int)ptr), COLOR_RESET);
 
     // store meta info
     Chunk *chunk = alloc_chunk(ptr);
@@ -335,12 +336,20 @@ void free(void *ptr) {
     FREE_COUNT++;
     uint64_t oid = get_oid();
 
-    log("%s... #%s%lu%s: free(%s0x%llx%s)%s\n", COLOR_LOG, BOLD(oid), BOLD((long long unsigned int)ptr), COLOR_RESET);
+    Chunk *chunk = find_chunk(ptr);
+
+    log("%s... #%s%lu%s: free(", COLOR_LOG, BOLD(oid));
+    if (chunk && chunk->ops[STATE_MALLOC]) {
+        log("%s#%lu%s)\t %s// %s0x%llx%s", BOLD_ADDR(chunk->ops[STATE_MALLOC]), COLOR_LOG, BOLD((long long unsigned int)ptr));
+    } else {
+        log("%s0x%llx%s)", BOLD((long long unsigned int)ptr));
+    }
+    //describe_symbol();
+    log("%s\n", COLOR_RESET);
 
     // find meta info, check to make sure it's all good
-    Chunk *chunk = find_chunk(ptr);
     if (!chunk) {
-        warn("freeing a pointer to something that is not a chunk");
+        warn("freeing a pointer to unknown chunk");
     } else if (chunk->ptr != ptr) {
         warn("freeing a pointer that is inside of a chunk");
     } else if (chunk->state == STATE_FREE) {
@@ -363,7 +372,8 @@ void *realloc(void *ptr, size_t size) {
     REALLOC_COUNT++;
     uint64_t oid = get_oid();
 
-    log("%s... #%s%lu%s: realloc(%s0x%llx%s, %s0x%02lx%s)%s\t", COLOR_LOG, BOLD(oid), BOLD((long long unsigned int)ptr), BOLD(size), COLOR_RESET);
+    // XXX/TODO: support #oid symbols for addr
+    log("%s... %s#%lu%s: realloc(%s0x%llx%s, %s0x%02lx%s)%s\t", COLOR_LOG, BOLD_ADDR(oid), BOLD((long long unsigned int)ptr), BOLD(size), COLOR_RESET);
     check_oid(oid, 1); // see if it's time to pause
     void *new_ptr = orig_realloc(ptr, size);
     log("%s = %s0x%llx%s\n", COLOR_LOG, COLOR_LOG_BOLD, (long long unsigned int)new_ptr, COLOR_RESET);
@@ -405,7 +415,6 @@ void exit(int status) {
 
 
 int main_hook(int argc, char **argv, char **envp) {
-    describe_symbol(orig_exit);
     int retval = main_orig(argc, argv, envp);
     show_stats();
     caused_by_heapalloc = 1;
