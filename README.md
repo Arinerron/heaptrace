@@ -10,7 +10,7 @@ It allows users to set breakpoints at heap operations, is able to automatically 
 $ git clone https://github.com/Arinerron/heaptrace && cd heaptrace
 $ ./build.sh
 ...
-$ LD_PRELOAD=./htrace.so ./my-binary
+$ LD_PRELOAD=./heaptrace.so ./my-binary
 ```
 
 ## Usage

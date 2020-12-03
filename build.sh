@@ -1,4 +1,5 @@
 #!/bin/sh
 
-gcc -Wall -fPIC -DPIC -c htrace.c
-ld -shared -o htrace.so htrace.o -ldl
+# someone plz make PR to add Makefile. I do not understand Makefiles
+gcc -Wall -fPIC -DPIC -c -g -O3 heaptrace.c
+ld -shared -o heaptrace.so heaptrace.o -ldl

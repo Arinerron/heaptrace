@@ -374,7 +374,6 @@ void *realloc(void *ptr, size_t size) {
     } else {
         // we freed the chunk
         ASSERT(!size, "realloc returned NULL even though size was not zero");
-
     }
 
     return new_ptr;
@@ -383,6 +382,7 @@ void *realloc(void *ptr, size_t size) {
 
 void exit(int status) {
     show_stats();
+    // caused_by_heapalloc = 1; // commenting this out since it may be helpful to see free(FILE *) etc
     orig_exit(status);
 }
 
@@ -390,6 +390,7 @@ void exit(int status) {
 int main_hook(int argc, char **argv, char **envp) {
     int retval = main_orig(argc, argv, envp);
     show_stats();
+    caused_by_heapalloc = 1;
     return retval;
 }
 
