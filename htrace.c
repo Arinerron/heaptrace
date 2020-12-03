@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <getopt.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <signal.h>
@@ -129,7 +128,7 @@ static int OPT_VERBOSE = 0; // show a stack trace on every operation?
 #define MAX_ARGS 1024
 char *argv[MAX_ARGS];
 
-#define MAX_BREAK_ATS 1024
+#define MAX_BREAK_ATS 0xff
 uint64_t break_ats[MAX_BREAK_ATS];
 
 void parse_arguments() {
@@ -158,35 +157,31 @@ void parse_arguments() {
         int argc = argv_i;
 
         // parse char **argv
-        static struct option long_options[] = {
-            { "break-at", required_argument, NULL, 'b' },
-            { "verbose-at", required_argument, NULL, 'v' },
-            { "break", no_argument, &OPT_BREAK, 1 },
-            { "verbose", no_argument, &OPT_VERBOSE, 1 },
-            { NULL, 0, NULL, 0 }
-        };
+        #define EXPECT_ARG ASSERT(i + 1 < argc, "an argument requires a parameter"); i++;
+        for (int i = 0; i < argc; i++) {
+            char *arg = argv[i];
 
-        char ch;
-        while ((ch = getopt_long(argc, argv, "b:v:bv", long_options, NULL)) != -1) {
-            log("asdf\n");
-            switch (ch) {
-                // break at
-                case 'b':
-                    for (int i = 0; i < MAX_BREAK_ATS; i++) {
-                        if (break_ats[i] == 0) {
-                            char *endp;
-                            break_ats[i] = strtoul(optarg, &endp, 10);
-                            log("going to break at %lu\n", break_ats[i]);
-                            break;
-                        }
+            if (!strcmp(arg, "--break")) {
+                OPT_BREAK = 1;
+            } else if (!strcmp(arg, "--verbose") || !strcmp(arg, "-v")) {
+                OPT_VERBOSE = 1;
+            } else if (!strcmp(arg, "--break-at") || !strcmp(arg, "-b")) {
+                EXPECT_ARG;
+                char *arg2 = argv[i];
+                for (int i2 = 0; i2 < MAX_BREAK_ATS; i2++) {
+                    if (break_ats[i2] == 0) {
+                        char *endp;
+                        break_ats[i2] = strtoul(arg2, &endp, 10);
+                        break;
                     }
-                    break;
-
-                // verbose at {int:addr}
-                case 'v':
-                    break;
+                }
+            } else {
+                log("unknown argument: %s\n", arg);
+                _exit(1);
             }
         }
+
+        unsetenv("HEAPTRACE_ARGS");
     }
 }
 
@@ -200,12 +195,22 @@ void check_oid(uint64_t oid, int prepend_newline) {
     }
 
     int should_break = OPT_BREAK;
+    
+    // try reading from params second
+    if (!should_break) {
+        for (int i = 0; i < MAX_BREAK_ATS; i++) {
+            if (break_ats[i] == oid) {
+                should_break = 1;
+            }
+        }
+    }
 
+    // now actually break if necessary
     if (should_break) {
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log("%s    [   PROCESS PAUSED   ]%s\n", COLOR_ERROR, COLOR_RESET);
         log("%s    |   * to attach GDB: %sgdb -p %d%s%s\n", COLOR_ERROR, BOLD_ERROR(getpid()), COLOR_RESET);
-        log("%s    |   * to resume process: %skill -CONT %d%s%s\n", COLOR_ERROR, BOLD_ERROR(getpid()), COLOR_RESET);
+        log("%s    |   * to resume process: %s%s%s OR %skill -CONT %d%s%s\n", COLOR_ERROR, BOLD_ERROR("fg"), BOLD_ERROR(getpid()), COLOR_RESET);
         if (prepend_newline) log("    "); // XXX/HACK: see above
         raise(SIGSTOP);
     }
