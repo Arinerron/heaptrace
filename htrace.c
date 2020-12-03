@@ -33,6 +33,7 @@ void *(*orig_malloc)(size_t size);
 void (*orig_free)(void *ptr);
 void *(*orig_realloc)(void *ptr, size_t size);
 void (*orig_exit)(int status) __attribute__ ((noreturn));
+static int (*main_orig)(int, char **, char **);
 
 
 //////////
@@ -217,7 +218,7 @@ void check_oid(uint64_t oid, int prepend_newline) {
 }
 
 
-////////// OID 
+////////// HELPERS
 
 
 // returns the current operation ID
@@ -225,6 +226,33 @@ uint64_t get_oid() {
     uint64_t oid = MALLOC_COUNT + FREE_COUNT + REALLOC_COUNT;
     ASSERT(oid < (uint64_t)0xFFFFFFFFFFFFFFF0LLU, "ran out of oids"); // avoid overflows
     return oid;
+}
+
+
+void show_stats() {
+    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
+
+    uint64_t unfreed_sum = 0;
+    Chunk cur_chunk;
+    for (int i = 0; i < MAX_CHUNKS; i++) {
+        cur_chunk = chunk_meta[i];
+        if (cur_chunk.state == STATE_MALLOC) {
+            log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+            unfreed_sum += cur_chunk.size;
+        }
+    }
+
+    if (unfreed_sum) log("%s------\n", COLOR_LOG);
+    log("Statistics:\n");
+    log("... total mallocs: %s%lu%s\n", BOLD(MALLOC_COUNT));
+    log("... total frees: %s%lu%s\n", BOLD(FREE_COUNT));
+    log("... total reallocs: %s%lu%s\n", BOLD(REALLOC_COUNT));
+
+    if (unfreed_sum) {
+        log("%s... total bytes lost: %s0x%lx%s\n", COLOR_ERROR, BOLD_ERROR(unfreed_sum));
+    }
+
+    log("%s", COLOR_RESET);
 }
 
 
@@ -329,31 +357,23 @@ void *realloc(void *ptr, size_t size) {
 
 
 void exit(int status) {
-    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
-
-    uint64_t unfreed_sum = 0;
-    Chunk cur_chunk;
-    for (int i = 0; i < MAX_CHUNKS; i++) {
-        cur_chunk = chunk_meta[i];
-        if (cur_chunk.state == STATE_MALLOC) {
-            log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
-            unfreed_sum += cur_chunk.size;
-        }
-    }
-
-    if (unfreed_sum) log("%s------\n", COLOR_LOG);
-    log("Statistics:\n");
-    log("... total mallocs: %s%lu%s\n", BOLD(MALLOC_COUNT));
-    log("... total frees: %s%lu%s\n", BOLD(FREE_COUNT));
-    log("... total reallocs: %s%lu%s\n", BOLD(REALLOC_COUNT));
-
-    if (unfreed_sum) {
-        log("%s... total bytes lost: %s0x%lx%s\n", COLOR_ERROR, BOLD_ERROR(unfreed_sum));
-    }
-
-    log("%s", COLOR_RESET);
-
+    show_stats();
     orig_exit(status);
+}
+
+
+int main_hook(int argc, char **argv, char **envp) {
+    int retval = main_orig(argc, argv, envp);
+    show_stats();
+    return retval;
+}
+
+
+// https://gist.github.com/apsun/1e144bf7639b22ff0097171fa0f8c6b1
+int __libc_start_main( int (*main)(int, char **, char **), int argc, char **argv, int (*init)(int, char **, char **), void (*fini)(void), void (*rtld_fini)(void), void *stack_end) {
+    main_orig = main;
+    typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
+    return orig(main_hook, argc, argv, init, fini, rtld_fini, stack_end);
 }
 
 
