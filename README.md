@@ -30,5 +30,5 @@ You can specify additional arguments using the `HEAPTRACE_ARGS` environmental va
 
 -v, --verbose               Print verbose information such as line numbers in
                             source code given the required debugging info is
-                            stored in the ELF
+                            stored in the ELF.
 ```
