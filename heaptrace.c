@@ -19,8 +19,9 @@
 
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
-#define COLOR_ADDR "\e[0;35m"
-#define COLOR_ADDR_BOLD "\e[1;35m"
+#define COLOR_LOG_ITALIC "\e[3;36m"
+#define COLOR_SYMBOL "\e[0;35m"
+#define COLOR_SYMBOL_BOLD "\e[1;35m"
 #define COLOR_ERROR "\e[0;31m"
 #define COLOR_ERROR_BOLD "\e[1;31m"
 #define COLOR_RESET "\e[0m"
@@ -29,7 +30,7 @@ static FILE *output_fd;
 
 #define log(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
-#define BOLD_SYMBOL(msg) COLOR_ADDR_BOLD, (msg), COLOR_LOG // %s%d%s
+#define BOLD_SYMBOL(msg) COLOR_SYMBOL_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_ERROR(msg) COLOR_ERROR_BOLD, (msg), COLOR_ERROR // %s%d%s
 #define error(msg) log("%sheaptrace error: %s%s%s\n", COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET) 
 #define warn(msg) log("%s    |-- %swarning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET)
@@ -304,10 +305,10 @@ void *malloc(size_t size) {
         warn("attempting a zero malloc");
     }
 
-    log("%s... %s#%lu%s: malloc(%s0x%02lx%s)\t%s", COLOR_LOG, BOLD_SYMBOL(oid), BOLD(size), COLOR_RESET);
+    log("%s... %s#%lu%s: malloc(%s0x%02lx%s)\t\t%s", COLOR_LOG, BOLD_SYMBOL(oid), BOLD(size), COLOR_RESET);
     check_oid(oid, 1); // see if it's time to pause
     void *ptr = orig_malloc(size);
-    log("%s =  %s0x%llx%s%s\n", COLOR_LOG, BOLD((long long unsigned int)ptr), COLOR_RESET);
+    log("%s=  %s0x%llx%s%s\n", COLOR_LOG, BOLD((long long unsigned int)ptr), COLOR_RESET);
 
     // store meta info
     Chunk *chunk = alloc_chunk(ptr);
@@ -341,7 +342,7 @@ void free(void *ptr) {
 
     log("%s... #%s%lu%s: free(", COLOR_LOG, BOLD(oid));
     if (chunk && chunk->ops[STATE_MALLOC]) {
-        log("%s#%lu%s)\t %s// #%lu=%s0x%llx%s", BOLD_SYMBOL(chunk->ops[STATE_MALLOC]), COLOR_LOG, chunk->ops[STATE_MALLOC], BOLD((long long unsigned int)ptr));
+        log("%s#%lu%s)\t\t   %s(%s#%lu%s%s=%s0x%llx%s%s)", BOLD_SYMBOL(chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD_SYMBOL(chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD((long long unsigned int)ptr), COLOR_LOG_ITALIC);
     } else {
         log("%s0x%llx%s)", BOLD((long long unsigned int)ptr));
     }
@@ -350,7 +351,10 @@ void free(void *ptr) {
 
     // find meta info, check to make sure it's all good
     if (!chunk) {
-        warn("freeing a pointer to unknown chunk");
+        if (ptr) {
+            // NOTE: the if(ptr) is because NULL is explicitly allowed in man page as NOOP
+            warn("freeing a pointer to unknown chunk");
+        }
     } else if (chunk->ptr != ptr) {
         warn("freeing a pointer that is inside of a chunk");
     } else if (chunk->state == STATE_FREE) {
@@ -391,9 +395,9 @@ void *realloc(void *ptr, size_t size) {
 
     check_oid(oid, 1); // see if it's time to pause
     void *new_ptr = orig_realloc(ptr, size);
-    log("%s = %s0x%llx%s", COLOR_LOG, BOLD((long long unsigned int)new_ptr));
+    log("%s=  %s0x%llx%s", COLOR_LOG, BOLD((long long unsigned int)new_ptr));
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
-        log(" // #%lu=%s0x%llx%s", orig_chunk->ops[STATE_MALLOC], BOLD((long long unsigned int)ptr));
+        log("\t%s(%s#%lu%s%s=0x%llx)", COLOR_LOG_ITALIC, BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, (long long unsigned int)ptr);
     }
     log("%s\n", COLOR_RESET);
     warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
