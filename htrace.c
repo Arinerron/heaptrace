@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
 
@@ -21,7 +23,9 @@
 #define COLOR_ERROR_BOLD "\e[1;31m"
 #define COLOR_RESET "\e[0m"
 
-#define log(f_, ...) fprintf(stderr, (f_), ##__VA_ARGS__)
+static int output_fd;
+
+#define log(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // XXX/TODO: replace stderr with dprintf(output_fd...
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_ERROR(msg) COLOR_ERROR_BOLD, (msg), COLOR_ERROR // %s%d%s
 #define error(msg) log("%sheaptrace error: %s%s%s\n", COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET) 
@@ -176,6 +180,13 @@ void parse_arguments() {
                         break;
                     }
                 }
+            } else if (!strcmp(arg, "--output") || !strcmp(arg, "-o")) {
+                EXPECT_ARG;
+                output_fd = open(argv[i], O_WRONLY); // can't use fopen because it malloc()s
+                if (!output_fd) {
+                    output_fd = fileno(stderr);
+                    log("failed to open file: %s\n", argv[i]);
+                }
             } else {
                 log("unknown argument: %s\n", arg);
                 _exit(1);
@@ -184,6 +195,8 @@ void parse_arguments() {
 
         unsetenv("HEAPTRACE_ARGS");
     }
+
+    args_parsed_yet = 1;
 }
 
 
@@ -385,5 +398,7 @@ void _init(void) {
     if (!orig_free) orig_free = dlsym(RTLD_NEXT, "free");
     if (!orig_realloc) orig_realloc = dlsym(RTLD_NEXT, "realloc");
     if (!orig_exit) orig_exit = dlsym(RTLD_NEXT, "exit");
+    output_fd = fileno(stderr);
+    parse_arguments();
     log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
 }
