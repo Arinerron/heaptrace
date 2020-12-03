@@ -23,9 +23,9 @@
 #define COLOR_ERROR_BOLD "\e[1;31m"
 #define COLOR_RESET "\e[0m"
 
-static int output_fd;
+static FILE *output_fd;
 
-#define log(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // XXX/TODO: replace stderr with dprintf(output_fd...
+#define log(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_ERROR(msg) COLOR_ERROR_BOLD, (msg), COLOR_ERROR // %s%d%s
 #define error(msg) log("%sheaptrace error: %s%s%s\n", COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET) 
@@ -182,9 +182,9 @@ void parse_arguments() {
                 }
             } else if (!strcmp(arg, "--output") || !strcmp(arg, "-o")) {
                 EXPECT_ARG;
-                output_fd = open(argv[i], O_WRONLY); // can't use fopen because it malloc()s
+                output_fd = fopen(argv[i], "w"); // can't use fopen because it malloc()s
                 if (!output_fd) {
-                    output_fd = fileno(stderr);
+                    output_fd = stderr;
                     log("failed to open file: %s\n", argv[i]);
                 }
             } else {
@@ -272,7 +272,12 @@ void show_stats() {
 //////////
 
 
+static int caused_by_heapalloc = 1;
+
+
 void *malloc(size_t size) {
+    if (caused_by_heapalloc) return orig_malloc(size);
+
     MALLOC_COUNT++;
     uint64_t oid = get_oid();
 
@@ -304,6 +309,11 @@ void *malloc(size_t size) {
 
 
 void free(void *ptr) {
+    if (caused_by_heapalloc) {
+        orig_free(ptr);
+        return;
+    }
+
     FREE_COUNT++;
     uint64_t oid = get_oid();
 
@@ -331,6 +341,7 @@ void free(void *ptr) {
 }
 
 void *realloc(void *ptr, size_t size) {
+    if (caused_by_heapalloc) return orig_realloc(ptr, size);
     REALLOC_COUNT++;
     uint64_t oid = get_oid();
 
@@ -398,7 +409,8 @@ void _init(void) {
     if (!orig_free) orig_free = dlsym(RTLD_NEXT, "free");
     if (!orig_realloc) orig_realloc = dlsym(RTLD_NEXT, "realloc");
     if (!orig_exit) orig_exit = dlsym(RTLD_NEXT, "exit");
-    output_fd = fileno(stderr);
+    output_fd = stderr;
     parse_arguments();
     log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
+    caused_by_heapalloc = 0;
 }
