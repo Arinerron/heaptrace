@@ -186,6 +186,7 @@ void parse_arguments() {
                 if (!output_fd) {
                     output_fd = stderr;
                     log("failed to open file: %s\n", argv[i]);
+                    _exit(1);
                 }
             } else {
                 log("unknown argument: %s\n", arg);
