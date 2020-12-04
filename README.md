@@ -2,6 +2,8 @@
 
 heaptrace is an `LD_PRELOAD`-based tool similar to ltrace that is made for tracking heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
 
+![screenshot.png](screenshot.png)
+
 It allows users to set breakpoints at heap operations, and is able to automatically identify and describe both double free vulnerabilities and memory leakage issues.
 
 ## Setup

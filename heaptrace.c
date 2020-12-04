@@ -255,12 +255,14 @@ void show_stats() {
     for (int i = 0; i < MAX_CHUNKS; i++) {
         cur_chunk = chunk_meta[i];
         if (cur_chunk.state == STATE_MALLOC) {
-            log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+            if (OPT_VERBOSE) {
+                log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+            }
             unfreed_sum += cur_chunk.size;
         }
     }
 
-    if (unfreed_sum) log("%s------\n", COLOR_LOG);
+    if (unfreed_sum && OPT_VERBOSE) log("%s------\n", COLOR_LOG);
     log("Statistics:\n");
     log("... total mallocs: %s%lu%s\n", BOLD(MALLOC_COUNT));
     log("... total frees: %s%lu%s\n", BOLD(FREE_COUNT));
@@ -397,7 +399,7 @@ void *realloc(void *ptr, size_t size) {
     void *new_ptr = orig_realloc(ptr, size);
     log("%s=  %s0x%llx%s", COLOR_LOG, BOLD((long long unsigned int)new_ptr));
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
-        log("\t%s(%s#%lu%s%s=0x%llx)", COLOR_LOG_ITALIC, BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, (long long unsigned int)ptr);
+        log("\t%s(%s#%lu%s%s=%s0x%llx%s)", COLOR_LOG_ITALIC, BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD((long long unsigned int)ptr));
     }
     log("%s\n", COLOR_RESET);
     warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
