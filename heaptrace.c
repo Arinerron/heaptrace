@@ -256,7 +256,7 @@ void show_stats() {
         cur_chunk = chunk_meta[i];
         if (cur_chunk.state == STATE_MALLOC) {
             if (OPT_VERBOSE) {
-                log("%s* chunk malloc'd in operation #%s%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+                log("%s* chunk malloc'd in operation %s#%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
             }
             unfreed_sum += cur_chunk.size;
         }
@@ -317,7 +317,7 @@ void *malloc(size_t size) {
 
     if (chunk->state == STATE_MALLOC) {
         warn("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
-        log("%s    |   * first malloc'd in operation #%lu%s\n", COLOR_ERROR, chunk->ops[STATE_MALLOC], COLOR_RESET);
+        log("%s    |   * first malloc'd in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(chunk->ops[STATE_MALLOC]), COLOR_RESET);
     }
 
     chunk->state = STATE_MALLOC;
@@ -361,8 +361,8 @@ void free(void *ptr) {
         warn("freeing a pointer that is inside of a chunk");
     } else if (chunk->state == STATE_FREE) {
         warn("attempting to double free a chunk");
-        log("%s    |   * malloc'd in operation #%lu%s\n", COLOR_ERROR, chunk->ops[STATE_MALLOC], COLOR_RESET);
-        log("%s    |   * first freed in operation #%lu%s\n", COLOR_ERROR, chunk->ops[STATE_FREE], COLOR_RESET);
+        log("%s    |   * malloc'd in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(chunk->ops[STATE_MALLOC]), COLOR_RESET);
+        log("%s    |   * first freed in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(chunk->ops[STATE_FREE]), COLOR_RESET);
     } else {
         // all is good!
         ASSERT(chunk->state != STATE_UNUSED, "cannot free unused chunk");
@@ -391,8 +391,8 @@ void *realloc(void *ptr, size_t size) {
 
     if (orig_chunk && orig_chunk->state == STATE_FREE) {
         warn("attempting to realloc a previously-freed chunk");
-        log("%s    |   * malloc()'d in operation #%lu%s\n", COLOR_ERROR, orig_chunk->ops[STATE_MALLOC], COLOR_RESET);
-        log("%s    |   * free()'d in operation #%lu%s\n", COLOR_ERROR, orig_chunk->ops[STATE_FREE], COLOR_RESET);
+        log("%s    |   * malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(orig_chunk->ops[STATE_MALLOC]), COLOR_RESET);
+        log("%s    |   * free()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(orig_chunk->ops[STATE_FREE]), COLOR_RESET);
     }
 
     check_oid(oid, 1); // see if it's time to pause
@@ -416,7 +416,7 @@ void *realloc(void *ptr, size_t size) {
             new_chunk = alloc_chunk(new_ptr);
             if (new_chunk->state == STATE_MALLOC) {
                 warn("realloc returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption");
-                log("%s    |   * first malloc()'d in operation #%lu%s\n", COLOR_ERROR, new_chunk->ops[STATE_MALLOC], COLOR_RESET);
+                log("%s    |   * first malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD(new_chunk->ops[STATE_MALLOC]), COLOR_RESET);
             }
 
             new_chunk->state = STATE_MALLOC;
