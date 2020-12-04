@@ -189,11 +189,11 @@ void parse_arguments() {
                 output_fd = fopen(argv[i], "w"); // can't use fopen because it malloc()s
                 if (!output_fd) {
                     output_fd = stderr;
-                    log("failed to open file: %s\n", argv[i]);
+                    error("failed to open file: %s\n", argv[i]);
                     _exit(1);
                 }
             } else {
-                log("unknown argument: %s\n", arg);
+                error("unknown argument: %s\n", arg);
                 _exit(1);
             }
         }
