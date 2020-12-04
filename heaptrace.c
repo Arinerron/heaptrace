@@ -406,7 +406,7 @@ void *realloc(void *ptr, size_t size) {
         log("\t%s(%s#%lu%s%s=%s0x%llx%s)", COLOR_LOG_ITALIC, BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD((long long unsigned int)ptr));
     }
     log("%s\n", COLOR_RESET);
-    warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
+    //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
     Chunk *new_chunk = find_chunk(new_ptr);
 
