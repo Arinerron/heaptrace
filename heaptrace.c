@@ -189,11 +189,13 @@ void parse_arguments() {
                 output_fd = fopen(argv[i], "w"); // can't use fopen because it malloc()s
                 if (!output_fd) {
                     output_fd = stderr;
-                    error("failed to open file: %s\n", argv[i]);
+                    error("failed to open file\n");
+                    log("file: %s\n", argv[i]);
                     _exit(1);
                 }
             } else {
-                error("unknown argument: %s\n", arg);
+                error("unknown argument\n");
+                log("arg: %s\n", arg);
                 _exit(1);
             }
         }
@@ -393,6 +395,8 @@ void *realloc(void *ptr, size_t size) {
         warn("attempting to realloc a previously-freed chunk");
         log("%s    |   * malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_MALLOC]), COLOR_RESET);
         log("%s    |   * free()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_FREE]), COLOR_RESET);
+    } else if (!orig_chunk) {
+        warn("attempting to realloc a chunk that was never malloc'd");
     }
 
     check_oid(oid, 1); // see if it's time to pause
@@ -409,7 +413,9 @@ void *realloc(void *ptr, size_t size) {
     if (ptr == new_ptr) {
         // the chunk shrank
         ASSERT(orig_chunk == new_chunk, "the new/old chunk are not equiv");
-        orig_chunk->size = size;
+        if (orig_chunk) {
+            orig_chunk->size = size;
+        } // the else condition is unnecessary because there's a check above for !orig_chunk
     } else {
         if (new_ptr) {
             // the chunk moved
@@ -429,10 +435,10 @@ void *realloc(void *ptr, size_t size) {
             ASSERT(!size, "realloc returned NULL even though size was not zero");
         }
 
-        if (ptr) {
+        if (ptr && orig_chunk) {
             orig_chunk->state = STATE_FREE;
             orig_chunk->ops[STATE_FREE] = oid;
-        }
+        } // no need for else if (!orig_chunk) because !orig_chunk is above
     }
 
     return new_ptr;
