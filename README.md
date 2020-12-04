@@ -34,3 +34,12 @@ You can specify additional arguments using the `HEAPTRACE_ARGS` environmental va
                             source code given the required debugging info is
                             stored in the ELF.
 ```
+
+For example, if you wanted to attach gdb at operation #6, you would execute:
+
+```
+$ LD_PRELOAD=./heaptrace.so HEAPTRACE_ARGS="-b 6" ./my-binary
+```
+
+![screenshot-break.png](screenshot-break.png)
+
