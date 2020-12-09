@@ -47,6 +47,17 @@ static int (*main_orig)(int, char **, char **);
 //////////
 
 
+#define SIZE_SZ 8 // XXX
+#define MALLOC_ALIGN_MASK (2*SIZE_SZ-1)
+#define MIN_CHUNK_SIZE (SIZE_SZ*4) // this is not always true
+#define MINSIZE (unsigned long)(((MIN_CHUNK_SIZE+MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK))
+#define CHUNK_SIZE(req) ((req) + SIZE_SZ + MALLOC_ALIGN_MASK < MINSIZE ? MINSIZE : ((req) + SIZE_SZ + MALLOC_ALIGN_MASK) & (~MALLOC_ALIGN_MASK)) // AKA request2size in malloc.c
+
+
+
+//////////
+
+
 static uint64_t MALLOC_COUNT = 0, FREE_COUNT = 0, REALLOC_COUNT;
 
 
@@ -95,6 +106,7 @@ Chunk *alloc_chunk(void *ptr) {
     }
 
     if (first_unused) {
+        memset(first_unused, 0, sizeof(Chunk));
         return first_unused;
     }
 
@@ -113,18 +125,23 @@ Chunk *find_chunk(void *ptr) {
     if (!ptr) {
         return 0;
     }
+
+    Chunk *next_best_chunk = 0;
     
     // find first available chunk
     Chunk cur_chunk;
     for (int i = 0; i < MAX_CHUNKS; i++) {
         cur_chunk = chunk_meta[i];
         // XXX: remember, malloc.c rounds size up!
-        if (ptr >= cur_chunk.ptr && ptr <= cur_chunk.ptr + cur_chunk.size) {
+        if (ptr == cur_chunk.ptr) {
             return &(chunk_meta[i]);
+        } else if (!next_best_chunk && ptr >= cur_chunk.ptr && ptr <= cur_chunk.ptr + CHUNK_SIZE(cur_chunk.size)) {
+            // this is to simplify chunk consolidation logic. it's not perfect but it works in most cases
+            next_best_chunk = &(chunk_meta[i]);
         }
     }
 
-    return 0;
+    return next_best_chunk;
 }
 
 
@@ -260,7 +277,7 @@ void show_stats() {
             if (OPT_VERBOSE) {
                 log("%s* chunk malloc'd in operation %s#%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
             }
-            unfreed_sum += cur_chunk.size;
+            unfreed_sum += CHUNK_SIZE(cur_chunk.size);
         }
     }
 
@@ -361,6 +378,7 @@ void free(void *ptr) {
         }
     } else if (chunk->ptr != ptr) {
         warn("freeing a pointer that is inside of a chunk");
+        log("%s    |   * container chunk malloc()'d in %s#%lu%s @ %s0x%llx%s with size %s0x%llx%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_MALLOC]), BOLD_ERROR((long long unsigned int)chunk->ptr), BOLD_ERROR((long long unsigned int)chunk->size), COLOR_RESET);
     } else if (chunk->state == STATE_FREE) {
         warn("attempting to double free a chunk");
         log("%s    |   * malloc'd in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_MALLOC]), COLOR_RESET);
@@ -392,10 +410,14 @@ void *realloc(void *ptr, size_t size) {
     }
 
     if (orig_chunk && orig_chunk->state == STATE_FREE) {
+        log("%s\n", COLOR_RESET);
         warn("attempting to realloc a previously-freed chunk");
         log("%s    |   * malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_MALLOC]), COLOR_RESET);
         log("%s    |   * free()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_FREE]), COLOR_RESET);
-    } else if (!orig_chunk) {
+    } else if (ptr && !orig_chunk) {
+        // ptr && because https://github.com/Arinerron/heaptrace/issues/9
+        //   0x0 is a special value
+        log("%s\n", COLOR_RESET);
         warn("attempting to realloc a chunk that was never malloc'd");
     }
 
