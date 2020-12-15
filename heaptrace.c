@@ -58,7 +58,7 @@ static int (*main_orig)(int, char **, char **);
 //////////
 
 
-static uint64_t MALLOC_COUNT = 0, FREE_COUNT = 0, REALLOC_COUNT;
+static uint64_t MALLOC_COUNT = 0, FREE_COUNT = 0, REALLOC_COUNT = 0;
 
 
 ////////// CHUNK META CHUNK
@@ -69,7 +69,7 @@ typedef struct Chunk {
     void *ptr;
     uint64_t size;
 
-    uint64_t ops[4]; // for tracking where ops happened: [malloc_oid, free_oid]
+    uint64_t ops[4]; // for tracking where ops happened: [placeholder for STATE_UNUSED, STATE_MALLOC oid, STATE_FREE oid, STATE_REALLOC oid]
 } Chunk;
 
 #define MAX_META_SIZE 8*8388600 // 64 MB
@@ -401,11 +401,12 @@ void *realloc(void *ptr, size_t size) {
 
     Chunk *orig_chunk = find_chunk(ptr);
 
-    // XXX/TODO: support #oid symbols for addr
     log("%s... %s#%lu%s: realloc(", COLOR_LOG, BOLD_SYMBOL(oid));
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
+        // #oid symbol resolved
         log("%s#%lu%s, %s0x%02lx%s)%s\t", BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), BOLD(size), COLOR_RESET);
     } else {
+        // could not find #oid, so just use addr
         log("%s0x%llx%s, %s0x%02lx%s)%s\t", BOLD((long long unsigned int)ptr), BOLD(size), COLOR_RESET);
     }
 
