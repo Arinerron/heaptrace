@@ -322,10 +322,6 @@ void *malloc(size_t size) {
     MALLOC_COUNT++;
     uint64_t oid = get_oid();
 
-    if (size == 0) {
-        warn("attempting a zero malloc");
-    }
-
     log("%s... %s#%lu%s: malloc(%s0x%02lx%s)\t\t%s", COLOR_LOG, BOLD_SYMBOL(oid), BOLD(size), COLOR_RESET);
     check_oid(oid, 1); // see if it's time to pause
     void *ptr = orig_malloc(size);
