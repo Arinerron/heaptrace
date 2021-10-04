@@ -1,4 +1,5 @@
 #include "debugger.h"
+#include "handlers.h"
 
 void bp_malloc_pre_handler(uint64_t size) {
     printf("... malloc(size=%x)\n", size);    
@@ -161,14 +162,82 @@ uint64_t get_binary_base(int pid) {
 }
 
 
+uint64_t get_libc_base(int pid) {
+    // TODO: get the full path to the libc
+    char *fname = "/usr/lib/libc-2.33.so";
+
+    // get the path to the /proc/pid/maps file
+    char *mapspath = malloc(MAX_PATH_SIZE + 1);
+    snprintf(mapspath, MAX_PATH_SIZE, "/proc/%d/maps", pid);
+    //printf("maps path: %s\n", mapspath);
+
+    FILE *f = fopen(mapspath, "r");
+    
+    uint64_t binary_base;
+    while (1) { // TODO: standardize this code!!!
+        uint64_t cur_binary_base = 0;
+        int _tmp[9]; // sorry I'm a terible programmer
+
+        if (fscanf(f, "%llx-%s ", &cur_binary_base, &_tmp) == EOF) { // 7f738fb9f000-7f738fba0000
+            break;
+        }
+        printf("asdf: %s\n", _tmp);
+
+        fscanf(f, "%s ", &_tmp); // rw-p
+        fscanf(f, "%s ", &_tmp); // 000a9000
+        fscanf(f, "%s:%s ", &_tmp, &_tmp); // 103:08
+        fscanf(f, "%d", &_tmp); // 18615725
+        printf("num: %d\n",  *_tmp);
+        if(*_tmp != 0) {
+        fscanf(f, " ");
+
+        char *cur_fname = malloc(MAX_PATH_SIZE + 1);
+        memset(cur_fname, 0, sizeof cur_fname);
+        fscanf(f, "%1024s\n", cur_fname); // XXX: sometimes reads in the next line. Usually works.
+        // XXX: technically a filename can contain a newline
+
+        printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
+        if (strcmp(fname, cur_fname) == 0) {
+            printf("Found it!\n");
+            // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
+            binary_base = cur_binary_base;
+            free(cur_fname);
+            break;
+        }
+
+        free(cur_fname);} else {
+            fscanf(f, "%s\n", &_tmp);
+        }
+    }
+
+    fclose(f);
+    free(mapspath);
+    return binary_base;
+}
+
+
+static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
+    if (se->type == SE_TYPE_STATIC) {
+        uint64_t bin_base = get_binary_base(pid);
+        return bin_base + se->offset;
+    } else if (se->type == SE_TYPE_DYNAMIC) {
+        uint64_t bin_base = get_libc_base(pid);
+        printf("using libc base %p\n", bin_base);
+        return bin_base + se->offset;
+    }
+
+    return 0;
+}
+
+
 void start_debugger(char *chargv[]) {
     SymbolEntry *se_malloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_malloc->name = "malloc";
     Breakpoint *bp_malloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_malloc->name = "malloc";
-    bp_malloc->pre_handler = bp_malloc_pre_handler;
+    bp_malloc->pre_handler = pre_malloc;
     bp_malloc->pre_handler_nargs = 1;
-    bp_malloc->post_handler = bp_malloc_post_handler;
+    bp_malloc->post_handler = post_malloc;
 
     SymbolEntry *se_calloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_calloc->name = "calloc";
@@ -215,13 +284,12 @@ void start_debugger(char *chargv[]) {
             //printf("... paused process. Signal: %p\n", status);
             if (first_signal) {
                 first_signal = 0;
-                uint64_t bin_base = get_binary_base(child);
-                printf("Child binary base: %p\n", bin_base);
+                //printf("Child binary base: %p\n", bin_base);
 
-                bp_malloc->addr = bin_base + se_malloc->offset;
-                bp_calloc->addr = bin_base + se_calloc->offset;
-                bp_free->addr = bin_base + se_free->offset;
-                bp_realloc->addr = bin_base + se_realloc->offset;
+                bp_malloc->addr = _calc_offset(child, se_malloc);
+                bp_calloc->addr = _calc_offset(child, se_calloc);
+                bp_free->addr = _calc_offset(child, se_free);
+                bp_realloc->addr = _calc_offset(child, se_realloc);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);

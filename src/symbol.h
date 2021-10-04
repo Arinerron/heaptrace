@@ -13,10 +13,15 @@
 #include <elf.h>
 #include <errno.h>
 
+#define SE_TYPE_UNRESOLVED 0
+#define SE_TYPE_STATIC 1
+#define SE_TYPE_DYNAMIC 2
+
 typedef struct SymbolEntry {
     char *name;
     uint64_t offset;
     int section;
+    int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC
 } SymbolEntry;
 
 int lookup_symbols(char *fname, SymbolEntry **ses, int sesc);
