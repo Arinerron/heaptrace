@@ -1,6 +1,7 @@
 main
 
-test/
+test/*
+!test/*.c
 core.*
 
 # Prerequisites

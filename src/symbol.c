@@ -66,6 +66,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
     size_t dynsym_sz = 0;
     size_t rela_dyn_off = 0;
     size_t rela_dyn_sz = 0;
+    size_t rela_plt_off = 0;
+    size_t rela_plt_sz = 0;
 
     // find sh_offset of string_index
     for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {
@@ -99,6 +101,9 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
         } else if (!strcmp(section_name, ".rela.dyn")) {
             rela_dyn_off = shdr.sh_offset;
             rela_dyn_sz = shdr.sh_size;
+        } else if (!strcmp(section_name, ".rela.plt")) {
+            rela_plt_off = shdr.sh_offset;
+            rela_plt_sz = shdr.sh_size;
         }
     }
 
@@ -111,15 +116,16 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
         cse->type = SE_TYPE_UNRESOLVED;
     }
 
-    // resolve dynamic symbols
+    // resolve dynamic (libc) symbols
     if (rela_dyn_off && dynstr_off && dynsym_off) {
         size_t rela_offsets[(dynsym_sz / sizeof(Elf64_Sym)) + 1];
+        for (int k = 0; k < (dynsym_sz / sizeof(Elf64_Sym)) + 1; k++) rela_offsets[k] = 0;
 
         for (size_t j = 0; j * sizeof(Elf64_Rela) < rela_dyn_sz; j++) {
             Elf64_Rela rela;
             size_t absoffset = rela_dyn_off + j * sizeof(Elf64_Rela);
             memmove(&rela, cbytes + absoffset, sizeof(rela));
-            //printf("rela: 0x%x (%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info));
+            //printf("rela libc: 0x%x (%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info));
             if (ELF64_R_TYPE(rela.r_info) == R_X86_64_GLOB_DAT) {
                 int sym_i = ELF64_R_SYM(rela.r_info);
                 rela_offsets[sym_i] = rela.r_offset;
@@ -143,7 +149,54 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
                 for (int i = 0; i < sesc; i++) {
                     SymbolEntry *cse = ses[i];
                     if (strncmp(cse->name, name, n) == 0) {
-                        //printf("dyn: st_name: %s @ 0x%x (%d)\n", name, rela_offsets[ji], sym.st_shndx);
+                        //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                        cse->type = SE_TYPE_DYNAMIC;
+                        cse->offset = (uint64_t)rela_offsets[ji];
+                        cse->section = sym.st_shndx;
+                    }
+                }
+            }
+            ji++;
+        }
+    }
+
+    // resolve dynamic (plt) symbols
+    // XXX/TODO: refactor to merge with the code block above
+    if (rela_plt_off && dynstr_off && dynsym_off) {
+        size_t rela_offsets[(dynsym_sz / sizeof(Elf64_Sym)) + 1];
+        for (int k = 0; k < (dynsym_sz / sizeof(Elf64_Sym)) + 1; k++) rela_offsets[k] = 0;
+
+        for (size_t j = 0; j * sizeof(Elf64_Rela) < rela_plt_sz; j++) {
+            Elf64_Rela rela;
+            size_t absoffset = rela_plt_off + j * sizeof(Elf64_Rela);
+            memmove(&rela, cbytes + absoffset, sizeof(rela));
+            //printf("rela plt: 0x%x (sym=%d, type=%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info), ELF64_R_TYPE(rela.r_info));
+            if (ELF64_R_TYPE(rela.r_info) == R_X86_64_JUMP_SLOT) {
+                int sym_i = ELF64_R_SYM(rela.r_info);
+                rela_offsets[sym_i] = rela.r_offset;
+                //printf("@6: %p\n", rela_offsets[6]);
+            }
+        }
+
+
+        int ji = 0;
+        for (size_t j = 0; j * sizeof(Elf64_Sym) < dynsym_sz; j++) {
+            Elf64_Sym sym;
+            size_t absoffset = dynsym_off + j * sizeof(Elf64_Sym);
+            memmove(&sym, cbytes + absoffset, sizeof(sym));
+            
+            if (sym.st_name != 0) {
+                char *name = cbytes + dynstr_off + sym.st_name;
+                size_t n = strlen(name);
+                char *pos = strstr(name, "@GLIBC_"); // XXX: slightly hacky
+                if (pos) {
+                    n = pos - name;
+                }
+
+                for (int i = 0; i < sesc; i++) {
+                    SymbolEntry *cse = ses[i];
+                    if (strncmp(cse->name, name, n) == 0) {
+                        //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
