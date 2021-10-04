@@ -231,11 +231,12 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
     } else if (se->type == SE_TYPE_DYNAMIC) {
         uint64_t libc_base = get_libc_base(pid);
         if (!libc_base) return 0;
-        printf("using libc base %p\n", libc_base);
+        //printf("using libc base %p\n", libc_base);
         uint64_t bin_base = get_binary_base(pid);
+        //printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
         uint64_t got_ptr = bin_base + se->offset;
         uint64_t got_val = ptrace(PTRACE_PEEKDATA, pid, got_ptr, NULL);
-        printf("ptr %p val %p\n", got_ptr, got_val);
+        //printf("ptr %p val %p\n", got_ptr, got_val);
         return got_val;
     }
 
@@ -330,12 +331,10 @@ void start_debugger(char *chargv[]) {
             ptrace(PTRACE_GETREGS, child, 0, &regs);
 
             if (look_for_brk && regs.orig_rax == SYS_brk) { // XXX: how can we KNOW this is a syscall?
-                printf("rax: %d\n", regs.orig_rax);
                 ptrace(PTRACE_SYSCALL, child, 0, 0);
                 waitpid(child, &status, 0); // run till end of syscall
                 uint64_t libc_base = get_libc_base(child);
                 if (libc_base) {
-                    printf("FOund libc base: %p\n", libc_base);
                     first_signal = 1; // trigger _calc_offsets
                     look_for_brk = 0;
                 }
@@ -358,7 +357,7 @@ void start_debugger(char *chargv[]) {
                 bp_free->addr = _calc_offset(child, se_free);
                 bp_realloc->addr = _calc_offset(child, se_realloc);
 
-                printf("addr: %p\n", bp_malloc->addr);
+                //printf("addr: %p\n", bp_malloc->addr);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);
