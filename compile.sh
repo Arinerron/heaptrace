@@ -1,7 +1,9 @@
 #!/bin/sh
 
 cd src
-gcc -o ../main \
+gcc -static \
+    -o ../main \
+    \
     logging.c \
     main.c \
     breakpoint.c \

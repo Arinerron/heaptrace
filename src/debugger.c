@@ -1,3 +1,6 @@
+#include <sys/syscall.h>
+#include <inttypes.h>
+
 #include "debugger.h"
 #include "handlers.h"
 #include "heap.h"
@@ -174,40 +177,44 @@ uint64_t get_libc_base(int pid) {
 
     FILE *f = fopen(mapspath, "r");
     
-    uint64_t binary_base;
+    uint64_t binary_base = 0 ;
     while (1) { // TODO: standardize this code!!!
         uint64_t cur_binary_base = 0;
-        int _tmp[9]; // sorry I'm a terible programmer
+        uint64_t _tmp[9]; // sorry I'm a terible programmer
 
-        if (fscanf(f, "%llx-%s ", &cur_binary_base, &_tmp) == EOF) { // 7f738fb9f000-7f738fba0000
+        if (fscanf(f, "%llx-%x ", &cur_binary_base, &_tmp) == EOF) { // 7f738fb9f000-7f738fba0000
             break;
         }
-        printf("asdf: %s\n", _tmp);
 
-        fscanf(f, "%s ", &_tmp); // rw-p
-        fscanf(f, "%s ", &_tmp); // 000a9000
-        fscanf(f, "%s:%s ", &_tmp, &_tmp); // 103:08
-        fscanf(f, "%d", &_tmp); // 18615725
-        printf("num: %d\n",  *_tmp);
-        if(*_tmp != 0) {
+        //printf("before: %p %p\n", cur_binary_base, *_tmp);
+
+        fscanf(f, "%c%c%c%c", &_tmp, &_tmp, &_tmp, &_tmp); // rw-p
         fscanf(f, " ");
+        fscanf(f, "%8c", &_tmp); // 000a9000
+        fscanf(f, " ");
+        fscanf(f, "%d:%d", &_tmp, &_tmp); // 103:08
+        fscanf(f, " ");
+        fscanf(f, "%" PRIu64, &_tmp); // 18615725
 
-        char *cur_fname = malloc(MAX_PATH_SIZE + 1);
-        memset(cur_fname, 0, sizeof cur_fname);
-        fscanf(f, "%1024s\n", cur_fname); // XXX: sometimes reads in the next line. Usually works.
-        // XXX: technically a filename can contain a newline
+        if(*_tmp != 0) {
+            fscanf(f, " ");
 
-        printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
-        if (strcmp(fname, cur_fname) == 0) {
-            printf("Found it!\n");
-            // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
-            binary_base = cur_binary_base;
+            char *cur_fname = malloc(MAX_PATH_SIZE + 1);
+            memset(cur_fname, 0, sizeof cur_fname);
+            fscanf(f, "%1024s\n", cur_fname); // XXX: sometimes reads in the next line. Usually works.
+            // XXX: technically a filename can contain a newline
+
+            //printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
+            if (strcmp(fname, cur_fname) == 0) {
+                // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
+                binary_base = cur_binary_base;
+                free(cur_fname);
+                break;
+            }
+
             free(cur_fname);
-            break;
-        }
-
-        free(cur_fname);} else {
-            fscanf(f, "%s\n", &_tmp);
+        } else {
+            fscanf(f, "\n");
         }
     }
 
@@ -222,9 +229,14 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
         uint64_t bin_base = get_binary_base(pid);
         return bin_base + se->offset;
     } else if (se->type == SE_TYPE_DYNAMIC) {
-        uint64_t bin_base = get_libc_base(pid);
-        printf("using libc base %p\n", bin_base);
-        return bin_base + se->offset;
+        uint64_t libc_base = get_libc_base(pid);
+        if (!libc_base) return 0;
+        printf("using libc base %p\n", libc_base);
+        uint64_t bin_base = get_binary_base(pid);
+        uint64_t got_ptr = bin_base + se->offset;
+        uint64_t got_val = ptrace(PTRACE_PEEKDATA, pid, got_ptr, NULL);
+        printf("ptr %p val %p\n", got_ptr, got_val);
+        return got_val;
     }
 
     return 0;
@@ -292,6 +304,9 @@ void start_debugger(char *chargv[]) {
     lookup_symbols(chargv[0], ses, 4);
 
     // ptrace section
+    
+    int is_dynamic = se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC;
+    int look_for_brk = is_dynamic;
 
     int child = fork();
     if (!child) {
@@ -303,15 +318,35 @@ void start_debugger(char *chargv[]) {
         }
     } else {
         int status;
-        int first_signal = 1;
+        int first_signal = !is_dynamic;
 
         /*wait(NULL);
         ptrace(PTRACE_CONT, child, 0L, 0L);*/
         //printf("Parent process\n");
         while(waitpid(child, &status, 0)) {
-            //debug("... paused process. Signal: %p\n", status); // TODO add debug func
+            //printf("... paused process. Signal: %p\n", status); // TODO add debug func
+
+            struct user_regs_struct regs;
+            ptrace(PTRACE_GETREGS, child, 0, &regs);
+
+            if (look_for_brk && regs.orig_rax == SYS_brk) { // XXX: how can we KNOW this is a syscall?
+                printf("rax: %d\n", regs.orig_rax);
+                ptrace(PTRACE_SYSCALL, child, 0, 0);
+                waitpid(child, &status, 0); // run till end of syscall
+                uint64_t libc_base = get_libc_base(child);
+                if (libc_base) {
+                    printf("FOund libc base: %p\n", libc_base);
+                    first_signal = 1; // trigger _calc_offsets
+                    look_for_brk = 0;
+                }
+                //goto continueptrace;
+            }
+
             if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV) {
                 end_debugger(child, status);
+            } else if (status == 0x57f) { // status SIGTRAP
+                // nothing
+            } else {
             }
 
             if (first_signal) {
@@ -322,6 +357,8 @@ void start_debugger(char *chargv[]) {
                 bp_calloc->addr = _calc_offset(child, se_calloc);
                 bp_free->addr = _calc_offset(child, se_free);
                 bp_realloc->addr = _calc_offset(child, se_realloc);
+
+                printf("addr: %p\n", bp_malloc->addr);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);
@@ -343,7 +380,12 @@ void start_debugger(char *chargv[]) {
             ptrace(PTRACE_GETREGS, child, NULL, &regs);
             ptrace(PTRACE_SYSCALL, child, NULL, NULL);*/
 
-            ptrace(PTRACE_CONT, child, 0L, 0L);
+continueptrace:
+            if (look_for_brk) {
+                ptrace(PTRACE_SYSCALL, child, 0, 0);
+            } else {
+                ptrace(PTRACE_CONT, child, 0L, 0L);
+            }
         }
         printf("While loop exited. Status: %d, exit status: %d\n", status, WEXITSTATUS(status));
     }
