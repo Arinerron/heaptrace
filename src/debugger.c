@@ -1,5 +1,6 @@
 #include "debugger.h"
 #include "handlers.h"
+#include "heap.h"
 
 void bp_malloc_pre_handler(uint64_t size) {
     printf("... malloc(size=%x)\n", size);    
@@ -230,6 +231,30 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
 }
 
 
+void end_debugger(int pid, int status) {
+    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
+
+    if (status == STATUS_SIGSEGV) { // SIGSEGV
+        log("%sProcess segfaulted (%s%s%s).%s ", COLOR_ERROR, BOLD_ERROR("SIGSEGV"), COLOR_LOG);
+    } else if (WIFSIGNALED(status) && !WIFEXITED(status)) { // some other abnormal code
+        log("%sProcess exited abnormally (status: %s%d%s).%s ", COLOR_ERROR, BOLD_ERROR(WTERMSIG(status)), COLOR_LOG);
+    }
+
+    if (WCOREDUMP(status)) {
+        log("%sCore dumped.%s ", COLOR_ERROR, COLOR_LOG)
+    }
+
+    show_stats();
+
+    for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
+        if (breakpoints[i]) {
+            _remove_breakpoint(pid, breakpoints[i]);
+        }
+    }
+    exit(0);
+}
+
+
 void start_debugger(char *chargv[]) {
     SymbolEntry *se_malloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_malloc->name = "malloc";
@@ -239,6 +264,7 @@ void start_debugger(char *chargv[]) {
     bp_malloc->pre_handler_nargs = 1;
     bp_malloc->post_handler = post_malloc;
 
+    // TODO calloc
     SymbolEntry *se_calloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_calloc->name = "calloc";
     Breakpoint *bp_calloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
@@ -250,15 +276,17 @@ void start_debugger(char *chargv[]) {
     se_free->name = "free";
     Breakpoint *bp_free = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_free->name = "free";
-    bp_free->pre_handler = bp_free_pre_handler;
+    bp_free->pre_handler = pre_free;
     bp_free->pre_handler_nargs = 1;
+    bp_free->post_handler = post_free;
 
     SymbolEntry *se_realloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_realloc->name = "realloc";
     Breakpoint *bp_realloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_realloc->name = "realloc";
-    bp_realloc->pre_handler = bp_realloc_pre_handler;
+    bp_realloc->pre_handler = pre_realloc;
     bp_realloc->pre_handler_nargs = 2;
+    bp_realloc->post_handler = post_realloc;
 
     SymbolEntry *ses[4] = {se_malloc, se_calloc, se_free, se_realloc};
     lookup_symbols(chargv[0], ses, 4);
@@ -280,8 +308,12 @@ void start_debugger(char *chargv[]) {
         /*wait(NULL);
         ptrace(PTRACE_CONT, child, 0L, 0L);*/
         //printf("Parent process\n");
-        while(waitpid(child, &status, 0) && !WIFEXITED(status)) {
-            //printf("... paused process. Signal: %p\n", status);
+        while(waitpid(child, &status, 0)) {
+            //debug("... paused process. Signal: %p\n", status); // TODO add debug func
+            if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV) {
+                end_debugger(child, status);
+            }
+
             if (first_signal) {
                 first_signal = 0;
                 //printf("Child binary base: %p\n", bin_base);

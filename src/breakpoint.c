@@ -4,6 +4,7 @@ Breakpoint *breakpoints[BREAKPOINTS_COUNT] = {0};
 
 void _add_breakpoint(int pid, Breakpoint *bp) {
     uint64_t vaddr = bp->addr;
+    if (!vaddr) return;
 
     if (bp->pre_handler_nargs >= 4) {
         printf("warning: only up to 3 args are supported in breakpoints\n");
