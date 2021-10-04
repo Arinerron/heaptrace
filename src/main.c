@@ -13,7 +13,13 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "logging.h"
+#include "options.h"
 #include "debugger.h"
+
+
+// TODO: arg parsing
+// https://github.com/Arinerron/heaptrace/blob/main/heaptrace.c#L148
 
 
 int main(int argc, char *argv[]) {
@@ -28,6 +34,9 @@ int main(int argc, char *argv[]) {
         chargv[i - 1] = argv[i];
     }
     chargv[argc - 1] = 0;
+
+    output_fd = stderr;
+    // TODO: parse args
 
     start_debugger(chargv);
     return 0;
