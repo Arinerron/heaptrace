@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
     chargv[argc - 1] = 0;
 
     output_fd = stderr;
+    log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
     // TODO: parse args
 
     start_debugger(chargv);

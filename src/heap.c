@@ -112,8 +112,6 @@ uint64_t get_oid() {
 
 
 void show_stats() {
-    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
-
     uint64_t unfreed_sum = 0;
     Chunk cur_chunk;
     for (int i = 0; i < MAX_CHUNKS; i++) {
