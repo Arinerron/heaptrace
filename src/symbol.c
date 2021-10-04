@@ -107,9 +107,6 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
         }
     }
 
-    assert(strtab_off);
-    assert(symtab_off);
-
     // reset symbol entries
     for (int i = 0; i < sesc; i++) {
         SymbolEntry *cse = ses[i];
@@ -208,20 +205,22 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
     }
 
     // resolve static symbols
-    for (size_t j = 0; j * sizeof(Elf64_Sym) < symtab_sz; j++) {
-        Elf64_Sym sym;
-        size_t absoffset = symtab_off + j * sizeof(Elf64_Sym);
-        memmove(&sym, cbytes + absoffset, sizeof(sym));
-        if (sym.st_name != 0) {
-            char *name = cbytes + strtab_off + sym.st_name;
-            size_t n = strlen(name);
-            for (int i = 0; i < sesc; i++) {
-                SymbolEntry *cse = ses[i];
-                if (cse->type == SE_TYPE_UNRESOLVED && strncmp(cse->name, name, n) == 0) {
-                    //printf("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
-                    cse->type = SE_TYPE_STATIC;
-                    cse->offset = (uint64_t)(sym.st_value) - load_addr;
-                    cse->section = sym.st_shndx;
+    if (strtab_off && symtab_off) {
+        for (size_t j = 0; j * sizeof(Elf64_Sym) < symtab_sz; j++) {
+            Elf64_Sym sym;
+            size_t absoffset = symtab_off + j * sizeof(Elf64_Sym);
+            memmove(&sym, cbytes + absoffset, sizeof(sym));
+            if (sym.st_name != 0) {
+                char *name = cbytes + strtab_off + sym.st_name;
+                size_t n = strlen(name);
+                for (int i = 0; i < sesc; i++) {
+                    SymbolEntry *cse = ses[i];
+                    if (cse->type == SE_TYPE_UNRESOLVED && strncmp(cse->name, name, n) == 0) {
+                        //printf("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
+                        cse->type = SE_TYPE_STATIC;
+                        cse->offset = (uint64_t)(sym.st_value) - load_addr;
+                        cse->section = sym.st_shndx;
+                    }
                 }
             }
         }
