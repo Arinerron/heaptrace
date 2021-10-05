@@ -11,9 +11,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "logging.h"
-#include "options.h"
-
 static int caused_by_heapalloc = 0; //  TODO: remove
 
 void pre_malloc(uint64_t isize);

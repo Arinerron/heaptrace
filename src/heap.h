@@ -11,8 +11,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "logging.h"
-
 #define STATE_UNUSED 0
 #define STATE_MALLOC 1
 #define STATE_FREE 2

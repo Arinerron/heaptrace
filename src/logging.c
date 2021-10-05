@@ -1,5 +1,7 @@
 #include "logging.h"
 
+FILE *output_fd;
+
 // TODO: convert to elf parsing
 /*void describe_symbol(void *ptr) {
     Dl_info ptrinfo;

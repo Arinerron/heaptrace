@@ -4,6 +4,7 @@
 #include "debugger.h"
 #include "handlers.h"
 #include "heap.h"
+#include "logging.h"
 
 void bp_malloc_pre_handler(uint64_t size) {
     printf("... malloc(size=%x)\n", size);    
@@ -254,7 +255,7 @@ void end_debugger(int pid, int status) {
     }
 
     if (WCOREDUMP(status)) {
-        log("%sCore dumped.%s ", COLOR_ERROR, COLOR_LOG)
+        log("%sCore dumped.%s ", COLOR_ERROR, COLOR_LOG);
     }
 
     show_stats();

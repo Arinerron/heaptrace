@@ -18,24 +18,16 @@
 #include "debugger.h"
 
 
-// TODO: arg parsing
-// https://github.com/Arinerron/heaptrace/blob/main/heaptrace.c#L148
-
-
 int main(int argc, char *argv[]) {
-    char *chargv[argc + 1];
-
-    if (argc == 1) {
-        printf("%s <binary> [args...]\n", argv[0]);
-        exit(1);
-    }
-
-    for (int i = 1; i < argc; i++) {
-        chargv[i - 1] = argv[i];
-    }
-    chargv[argc - 1] = 0;
-
     output_fd = stderr;
+
+    char *chargv[argc + 1];
+    int start_at = parse_args(argc, argv);
+    for (int i = start_at; i < argc; i++) {
+        chargv[i - start_at] = argv[i];
+    }
+    chargv[argc - start_at] = 0;
+
     log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
     // TODO: parse args
 
