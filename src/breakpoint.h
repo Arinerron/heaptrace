@@ -30,4 +30,4 @@ extern Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 
 void _add_breakpoint(int pid, Breakpoint *bp);
 void _remove_breakpoint(int pid, Breakpoint *bp);
-
+void _remove_breakpoints(int pid);

@@ -6,6 +6,8 @@
 #include "heap.h"
 #include "logging.h"
 
+int CHILD_PID = 0;
+
 void bp_malloc_pre_handler(uint64_t size) {
     printf("... malloc(size=%x)\n", size);    
 }
@@ -260,11 +262,7 @@ void end_debugger(int pid, int status) {
 
     show_stats();
 
-    for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (breakpoints[i]) {
-            _remove_breakpoint(pid, breakpoints[i]);
-        }
-    }
+    _remove_breakpoints(pid);
     exit(0);
 }
 
@@ -321,6 +319,7 @@ void start_debugger(char *chargv[]) {
     } else {
         int status;
         int first_signal = !is_dynamic;
+        CHILD_PID = child;
 
         /*wait(NULL);
         ptrace(PTRACE_CONT, child, 0L, 0L);*/

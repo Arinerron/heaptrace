@@ -24,18 +24,15 @@ You can specify additional arguments using the `HEAPTRACE_ARGS` environmental va
                             stderr (default).
 
 -b <oid>, --break-at=<oid>  Send SIGSTOP to the process at heap operation 
-                            specified in `oid` and print instructions to gdb
-                            attach to the process.
-
---break                     Send SIGSTOP to the process on every heap 
-                            operation and print instructions to gdb attach.
+                            specified in `oid` and attach the GNU debugger 
+                            (gdb) to the process.
 
 -v, --verbose               Print verbose information such as line numbers in
                             source code given the required debugging info is
                             stored in the ELF.
 ```
 
-For example, if you wanted to attach gdb at operation #6, you would execute:
+For example, if you wanted to automatically attach gdb at operation #6, you would execute:
 
 ```
 ./heaptrace -b 6 ./my-binary
