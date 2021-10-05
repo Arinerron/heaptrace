@@ -20,6 +20,8 @@
 
 #define STATUS_SIGSEGV 0xb7f
 
+extern int CHILD_PID;
+
 void _check_breakpoints(int pid);
 uint64_t get_binary_base(int pid);
 void end_debugger(int pid, int status);

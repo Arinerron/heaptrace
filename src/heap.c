@@ -1,6 +1,7 @@
 #include "options.h"
 #include "heap.h"
 #include "logging.h"
+#include "debugger.h"
 
 uint64_t MALLOC_COUNT = 0;
 uint64_t FREE_COUNT = 0;
@@ -96,10 +97,21 @@ void check_oid(uint64_t oid, int prepend_newline) {
     if (should_break) {
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log("%s    [   PROCESS PAUSED   ]%s\n", COLOR_ERROR, COLOR_RESET);
-        log("%s    |   * to attach GDB: %sgdb -p %d%s%s\n", COLOR_ERROR, BOLD_ERROR(getpid()), COLOR_RESET);
-        log("%s    |   * to resume process: %s%s%s OR %skill -CONT %d%s%s\n", COLOR_ERROR, BOLD_ERROR("fg"), BOLD_ERROR(getpid()), COLOR_RESET);
+        log("%s    |   * attaching GDB via: %s/usr/bin/gdb -p %d%s%s\n", COLOR_ERROR, BOLD_ERROR(CHILD_PID), COLOR_RESET);
         if (prepend_newline) log("    "); // XXX/HACK: see above
-        raise(SIGSTOP);
+
+        // launch gdb
+        _remove_breakpoints(CHILD_PID);
+        ptrace(PTRACE_DETACH, CHILD_PID, NULL, SIGSTOP);
+
+        char buf[10+1];
+        snprintf(buf, 10, "%d", CHILD_PID);
+        char *args[] = {"/usr/bin/gdb", "-p", buf, NULL};
+        if (execv("/usr/bin/gdb", args) == -1) {
+            error("Failed to execute /usr/bin/gdb");
+            printf("error: %s", strerror(errno));
+        }
+        //raise(SIGSTOP);
     }
 }
 

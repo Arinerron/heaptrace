@@ -49,3 +49,11 @@ void _remove_breakpoint(int pid, Breakpoint *bp) {
     free(bp);
 }
 
+
+void _remove_breakpoints(int pid) {
+    for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
+        if (breakpoints[i]) {
+            _remove_breakpoint(pid, breakpoints[i]);
+        }
+    }
+}
