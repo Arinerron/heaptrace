@@ -248,7 +248,7 @@ void end_debugger(int pid, int status) {
     log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
 
     if (status == STATUS_SIGSEGV) { // SIGSEGV
-        log("%sProcess segfaulted (%s%s%s).%s ", COLOR_ERROR, BOLD_ERROR("SIGSEGV"), COLOR_LOG);
+        log("%sProcess exited abnormally (%s%s%s).%s ", COLOR_ERROR, BOLD_ERROR("SIGABRT or SIGSEGV"), COLOR_LOG);
     } else if (WIFSIGNALED(status) && !WIFEXITED(status)) { // some other abnormal code
         log("%sProcess exited abnormally (status: %s%d%s).%s ", COLOR_ERROR, BOLD_ERROR(WTERMSIG(status)), COLOR_LOG);
     }
