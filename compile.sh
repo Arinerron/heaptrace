@@ -2,7 +2,7 @@
 
 cd src
 gcc -static \
-    -o ../main \
+    -o ../heaptrace \
     \
     logging.c \
     main.c \

@@ -1,4 +1,5 @@
 main
+heaptrace
 
 # test/*
 # !test/*.c

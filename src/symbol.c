@@ -145,7 +145,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
 
                 for (int i = 0; i < sesc; i++) {
                     SymbolEntry *cse = ses[i];
-                    if (cse->type == SE_TYPE_UNRESOLVED && strncmp(cse->name, name, n) == 0) {
+                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
@@ -192,8 +192,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
 
                 for (int i = 0; i < sesc; i++) {
                     SymbolEntry *cse = ses[i];
-                    if (cse->type == SE_TYPE_UNRESOLVED && strncmp(cse->name, name, n) == 0) {
-                        //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
+                        printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
@@ -215,7 +215,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
                 size_t n = strlen(name);
                 for (int i = 0; i < sesc; i++) {
                     SymbolEntry *cse = ses[i];
-                    if (cse->type == SE_TYPE_UNRESOLVED && strncmp(cse->name, name, n) == 0) {
+                    if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
                         cse->type = SE_TYPE_STATIC;
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;
