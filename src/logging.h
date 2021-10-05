@@ -11,8 +11,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "options.h"
-
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
 #define COLOR_LOG_ITALIC "\e[3;36m"
@@ -22,10 +20,10 @@
 #define COLOR_ERROR_BOLD "\e[1;31m"
 #define COLOR_RESET "\e[0m"
 
-static FILE *output_fd;
+extern FILE *output_fd;
 
-#define log(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
-#define warn2(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // TODO: color and prefix?
+#define log(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
+#define warn2(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // TODO: color and prefix?
 
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_SYMBOL(msg) COLOR_SYMBOL_BOLD, (msg), COLOR_LOG // %s%d%s

@@ -1,6 +1,7 @@
 #include "handlers.h"
 #include "logging.h"
 #include "heap.h"
+#include "options.h"
 
 static size_t size;
 static uint64_t ptr;

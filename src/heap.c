@@ -1,5 +1,6 @@
 #include "options.h"
 #include "heap.h"
+#include "logging.h"
 
 uint64_t MALLOC_COUNT = 0;
 uint64_t FREE_COUNT = 0;
