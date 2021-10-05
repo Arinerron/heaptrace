@@ -25,10 +25,13 @@
 static FILE *output_fd;
 
 #define log(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
+#define warn2(f_, ...) { fprintf(stderr, (f_), ##__VA_ARGS__); } // TODO: color and prefix?
+
 #define BOLD(msg) COLOR_LOG_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_SYMBOL(msg) COLOR_SYMBOL_BOLD, (msg), COLOR_LOG // %s%d%s
 #define BOLD_ERROR(msg) COLOR_ERROR_BOLD, (msg), COLOR_ERROR // %s%d%s
 #define error(msg) log("%sheaptrace error: %s%s%s\n", COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET) 
+//#define warn2(msg) log("%sheaptrace warning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR, (msg), COLOR_RESET) 
 #define warn(msg) log("%s    |-- %swarning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR_BOLD, COLOR_ERROR, (msg), COLOR_RESET)
 
 #define ASSERT(q, msg) if (!(q)) { error(msg); abort(); }
