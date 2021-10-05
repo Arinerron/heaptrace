@@ -1,18 +1,18 @@
 # About
 
-heaptrace is an `LD_PRELOAD`-based tool similar to ltrace that is made for tracking heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
+heaptrace is an ptrace-based tool similar to ltrace for tracking heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
-It allows users to set breakpoints at heap operations, and is able to automatically identify and describe both double free vulnerabilities and memory leakage issues.
+It allows users to set breakpoints at heap operations, prints out the heap operations using symbols instead of pointers, and is able to automatically identify and describe both double free vulnerabilities and memory leakage issues.
 
 ## Setup
 
 ```sh
 $ git clone https://github.com/Arinerron/heaptrace && cd heaptrace
-$ ./build.sh
+$ ./compile.sh
 ...
-$ LD_PRELOAD=./heaptrace.so ./my-binary
+$ ./heaptrace ./my-binary
 ```
 
 ## Usage
@@ -38,7 +38,7 @@ You can specify additional arguments using the `HEAPTRACE_ARGS` environmental va
 For example, if you wanted to attach gdb at operation #6, you would execute:
 
 ```
-$ LD_PRELOAD=./heaptrace.so HEAPTRACE_ARGS="-b 6" ./my-binary
+./heaptrace -b 6 ./my-binary
 ```
 
 ![screenshot-break.png](screenshot-break.png)
