@@ -1,6 +1,6 @@
 # About
 
-heaptrace is an ptrace-based tool similar to ltrace for tracking heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
+heaptrace is a ptrace-based tool similar to ltrace for tracking glibc heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 

@@ -1,6 +1,6 @@
 #include "symbol.h"
 
-int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
+int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name) {
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
         return 0;
@@ -46,15 +46,21 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
 
     size_t string_index = elf_hdr.e_shstrndx;
     uint64_t string_offset;
-    uint64_t load_addr;
+    uint64_t load_addr = 0;
+    uint64_t interp_addr = 0;
     char *cbytes = (char *)tbytes;
     for (uint16_t i = 0; i < elf_hdr.e_phnum; i++) {
         size_t offset = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;
         Elf64_Phdr phdr;
         memmove(&phdr, tbytes + offset, sizeof(phdr));
+        //if (phdr.p_type == PT_LOAD) { // XXX: not working TODO
         if (!i) {
             //printf("ELF load address is %p\n", phdr.p_vaddr);
             load_addr = phdr.p_vaddr;
+        }
+
+        if (phdr.p_type == PT_INTERP) {
+            interp_addr = phdr.p_vaddr;
         }
     }
 
@@ -79,6 +85,10 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc) {
             break;
         }
     }
+
+    char *_interp_name = (interp_addr ? strdup(cbytes + interp_addr) : 0);
+    //printf("interp: %p / %s\n", interp_addr, interp_name);
+    *interp_name = _interp_name;
 
     // find .plt, symtab, .strtab offsets
     for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {
