@@ -41,7 +41,7 @@ Chunk *alloc_chunk(uint64_t ptr) {
     }
 
     // no free chunk structs found!
-    error("out of meta chunks");
+    fatal("out of meta chunks");
     abort();
 }
 
@@ -96,8 +96,8 @@ void check_oid(uint64_t oid, int prepend_newline) {
     // now actually break if necessary
     if (should_break) {
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
-        log("%s    [   PROCESS PAUSED   ]%s\n", COLOR_ERROR, COLOR_RESET);
-        log("%s    |   * attaching GDB via: %s/usr/bin/gdb -p %d%s%s\n", COLOR_ERROR, BOLD_ERROR(CHILD_PID), COLOR_RESET);
+        log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");
+        log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "/usr/bin/gdb -p %d\n" COLOR_RESET, CHILD_PID);
         if (prepend_newline) log("    "); // XXX/HACK: see above
 
         // launch gdb
@@ -106,10 +106,11 @@ void check_oid(uint64_t oid, int prepend_newline) {
 
         char buf[10+1];
         snprintf(buf, 10, "%d", CHILD_PID);
-        char *args[] = {"/usr/bin/gdb", "-p", buf, NULL};
-        if (execv("/usr/bin/gdb", args) == -1) {
-            error("Failed to execute /usr/bin/gdb");
-            printf("error: %s", strerror(errno));
+        char *gdb_path = "/usr/bin/gdb";
+        char *args[] = {gdb_path, "-p", buf, NULL};
+        if (execv(args[0], args) == -1) {
+            fatal("failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
+            abort();
         }
         //raise(SIGSTOP);
     }
@@ -131,20 +132,20 @@ void show_stats() {
         cur_chunk = chunk_meta[i];
         if (cur_chunk.state == STATE_MALLOC) {
             if (OPT_VERBOSE) {
-                log("%s* chunk malloc'd in operation %s#%lu%s was never freed\n", COLOR_ERROR, BOLD_ERROR(cur_chunk.ops[STATE_MALLOC]));
+                log(COLOR_ERROR "* chunk malloc'd in operation " SYM COLOR_ERROR " was never freed\n", cur_chunk.ops[STATE_MALLOC]);
             }
             unfreed_sum += CHUNK_SIZE(cur_chunk.size);
         }
     }
 
-    if (unfreed_sum && OPT_VERBOSE) log("%s------\n", COLOR_LOG);
-    log("Statistics:\n");
-    log("... total mallocs: %s%lu%s\n", BOLD(MALLOC_COUNT));
-    log("... total frees: %s%lu%s\n", BOLD(FREE_COUNT));
-    log("... total reallocs: %s%lu%s\n", BOLD(REALLOC_COUNT));
+    if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
+    log(COLOR_LOG "Statistics:\n");
+    log("... total mallocs: " CNT "\n", MALLOC_COUNT);
+    log("... total frees: " CNT "\n", FREE_COUNT);
+    log("... total reallocs: " CNT "\n" COLOR_RESET, REALLOC_COUNT);
 
     if (unfreed_sum) {
-        log("%s... total bytes lost: %s0x%lx%s\n", COLOR_ERROR, BOLD_ERROR(unfreed_sum));
+        log(COLOR_ERROR "... total bytes lost: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
     }
 
     log("%s", COLOR_RESET);

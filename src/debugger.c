@@ -67,7 +67,7 @@ void _check_breakpoints(int pid) {
                     } else if (nargs == 3) {
                         ((void(*)(uint64_t, uint64_t, uint64_t))bp->pre_handler)(regs.rdi, regs.rsi, regs.rdx);
                     } else {
-                        printf("warning: nargs is only supported up to 3 args; ignoring bp pre_handler\n");
+                        warn("nargs is only supported up to 3 args; ignoring bp pre_handler\n");
                     }
                 }
                 
@@ -249,16 +249,14 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
 
 
 void end_debugger(int pid, int status) {
-    log("%s\n================================= %s%s%s ================================\n", COLOR_LOG, BOLD("END HEAPTRACE"));
+    log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
 
-    if (status == STATUS_SIGSEGV) { // SIGSEGV
-        log("%sProcess exited abnormally (%s%s%s).%s ", COLOR_ERROR, BOLD_ERROR("SIGABRT or SIGSEGV"), COLOR_LOG);
-    } else if (WIFSIGNALED(status) && !WIFEXITED(status)) { // some other abnormal code
-        log("%sProcess exited abnormally (status: %s%d%s).%s ", COLOR_ERROR, BOLD_ERROR(WTERMSIG(status)), COLOR_LOG);
+    if ((status == STATUS_SIGSEGV) || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
+        log(COLOR_ERROR "Process exited abnormally (status: " COLOR_ERROR_BOLD "%d" COLOR_ERROR ")." COLOR_RESET " ", WTERMSIG(status));
     }
 
     if (WCOREDUMP(status)) {
-        log("%sCore dumped.%s ", COLOR_ERROR, COLOR_LOG);
+        log(COLOR_ERROR "Core dumped. " COLOR_LOG);
     }
 
     show_stats();
@@ -325,13 +323,16 @@ void start_debugger(char *chargv[]) {
     int child = fork();
     if (!child) {
         //printf("Starting process %s\n", chargv[0]);
+        
+        // disable ASLR
         if (personality(ADDR_NO_RANDOMIZE) == -1) {
-            error("failed to disable aslr\n");
+            warn("failed to disable aslr\n");
         }
+
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         if (execvp(chargv[0], chargv) == -1) {
-            printf("Failed to execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
-            exit(1);
+            fatal("failed to execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
+            abort();
         }
     } else {
         int status;
