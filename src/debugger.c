@@ -1,5 +1,6 @@
 #include <sys/syscall.h>
 #include <inttypes.h>
+#include <sys/personality.h>
 
 #include "debugger.h"
 #include "handlers.h"
@@ -301,16 +302,32 @@ void start_debugger(char *chargv[]) {
     bp_realloc->post_handler = post_realloc;
 
     SymbolEntry *ses[4] = {se_malloc, se_calloc, se_free, se_realloc};
-    lookup_symbols(chargv[0], ses, 4);
+    char *interp_name;
+    lookup_symbols(chargv[0], ses, 4, &interp_name);
+
+    if (interp_name) {
+        //debug("Using interpreter \"%s\".\n", interp_name);
+    }
 
     // ptrace section
     
     int is_dynamic = se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC;
     int look_for_brk = is_dynamic;
 
+    assert(!is_dynamic || (is_dynamic && interp_name));
+    if (interp_name) {
+        //get_glibc_path(interp_name, chargv[0]);
+    }
+
+    free(interp_name);
+    interp_name = 0;
+
     int child = fork();
     if (!child) {
         //printf("Starting process %s\n", chargv[0]);
+        if (personality(ADDR_NO_RANDOMIZE) == -1) {
+            error("failed to disable aslr\n");
+        }
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         if (execvp(chargv[0], chargv) == -1) {
             printf("Failed to execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
