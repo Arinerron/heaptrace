@@ -17,7 +17,6 @@
 #include "options.h"
 #include "debugger.h"
 
-
 int main(int argc, char *argv[]) {
     output_fd = stderr;
 
@@ -28,7 +27,7 @@ int main(int argc, char *argv[]) {
     }
     chargv[argc - start_at] = 0;
 
-    log("%s================================ %s%s%s ===============================\n%s\n", COLOR_LOG, BOLD("BEGIN HEAPTRACE"), COLOR_RESET);
+    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n" COLOR_RESET "\n");
     // TODO: parse args
 
     start_debugger(chargv);

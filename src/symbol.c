@@ -1,4 +1,5 @@
 #include "symbol.h"
+#include "logging.h"
 
 int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name) {
     FILE *tfile = fopen(fname, "r");
@@ -15,7 +16,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
 
     if (tbytes == 0) {
         fclose(tfile);
-        perror("mmap()");
+        fatal("mmap() failed in lookup_symbols");
+        abort();
         return 0;
     }
 

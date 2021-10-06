@@ -17,7 +17,7 @@ void pre_malloc(uint64_t isize) {
     MALLOC_COUNT++;
     oid = get_oid();
 
-    log("%s... %s#%lu%s: malloc(%s0x%02lx%s)\t\t%s", COLOR_LOG, BOLD_SYMBOL(oid), BOLD(size), COLOR_RESET);
+    log_heap("... " SYM ": malloc(" SZ ")\t\t", oid, size);
     check_oid(oid, 1); // see if it's time to pause
 }
 
@@ -25,14 +25,14 @@ void pre_malloc(uint64_t isize) {
 void post_malloc(uint64_t ptr) {
     if (caused_by_heapalloc) return;
 
-    log("%s=  %s0x%llx%s%s\n", COLOR_LOG, BOLD((long long unsigned int)ptr), COLOR_RESET);
+    log_heap("=  " PTR "\n", PTR_ARG(ptr));
 
     // store meta info
     Chunk *chunk = alloc_chunk(ptr);
 
     if (chunk->state == STATE_MALLOC) {
-        warn("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
-        log("%s    |   * first malloc'd in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_MALLOC]), COLOR_RESET);
+        warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
+        warn_heap2("first malloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
     }
 
     chunk->state = STATE_MALLOC;
@@ -54,28 +54,28 @@ void pre_free(uint64_t iptr) {
 
     Chunk *chunk = find_chunk(ptr);
 
-    log("%s... #%s%lu%s: free(", COLOR_LOG, BOLD(oid));
+    log_heap("... " SYM ": free(", oid);
     if (chunk && chunk->ops[STATE_MALLOC]) {
-        log("%s#%lu%s)\t\t   %s(%s#%lu%s%s=%s0x%llx%s%s)", BOLD_SYMBOL(chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD_SYMBOL(chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD((long long unsigned int)ptr), COLOR_LOG_ITALIC);
+        log_heap(SYM ")\t\t   %s(" SYM_IT "=%s" PTR_IT "%s)", chunk->ops[STATE_MALLOC], COLOR_LOG_ITALIC, chunk->ops[STATE_MALLOC], COLOR_LOG_BOLD, PTR_ARG(ptr), COLOR_LOG_ITALIC);
     } else {
-        log("%s0x%llx%s)", BOLD((long long unsigned int)ptr));
+        log_heap(PTR ")", PTR_ARG(ptr));
     }
     //describe_symbol();
-    log("%s\n", COLOR_RESET);
+    log("\n");
 
     // find meta info, check to make sure it's all good
     if (!chunk) {
         if (ptr) {
             // NOTE: the if(ptr) is because NULL is explicitly allowed in man page as NOOP
-            warn("freeing a pointer to unknown chunk");
+            warn_heap("freeing a pointer to unknown chunk");
         }
     } else if (chunk->ptr != ptr) {
-        warn("freeing a pointer that is inside of a chunk");
-        log("%s    |   * container chunk malloc()'d in %s#%lu%s @ %s0x%llx%s with size %s0x%llx%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_MALLOC]), BOLD_ERROR((long long unsigned int)chunk->ptr), BOLD_ERROR((long long unsigned int)chunk->size), COLOR_RESET);
+        warn_heap("freeing a pointer that is inside of a chunk");
+        warn_heap2("container chunk malloc()'d in " SYM " @ " PTR " with size " SZ, chunk->ops[STATE_MALLOC], PTR_ARG(chunk->ptr), SZ_ARG(chunk->size));
     } else if (chunk->state == STATE_FREE) {
-        warn("attempting to double free a chunk");
-        log("%s    |   * malloc'd in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_MALLOC]), COLOR_RESET);
-        log("%s    |   * first freed in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(chunk->ops[STATE_FREE]), COLOR_RESET);
+        warn_heap("attempting to double free a chunk");
+        warn_heap2("first freed in operation " SYM, chunk->ops[STATE_FREE]);
+        warn_heap2("malloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
     } else {
         // all is good!
         ASSERT(chunk->state != STATE_UNUSED, "cannot free unused chunk");
@@ -103,25 +103,25 @@ void pre_realloc(uint64_t iptr, uint64_t isize) {
 
     orig_chunk = find_chunk(ptr);
 
-    log("%s... %s#%lu%s: realloc(", COLOR_LOG, BOLD_SYMBOL(oid));
+    log_heap("... " SYM ": realloc(", oid);
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
         // #oid symbol resolved
-        log("%s#%lu%s, %s0x%02lx%s)%s\t", BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), BOLD(size), COLOR_RESET);
+        log_heap(SYM ", " SZ ")\t", orig_chunk->ops[STATE_MALLOC], SZ_ARG(size));
     } else {
         // could not find #oid, so just use addr
-        log("%s0x%llx%s, %s0x%02lx%s)%s\t", BOLD((long long unsigned int)ptr), BOLD(size), COLOR_RESET);
+        log_heap(SYM ", " SZ ")\t", PTR_ARG(ptr), SZ_ARG(size));
     }
 
     if (orig_chunk && orig_chunk->state == STATE_FREE) {
-        log("%s\n", COLOR_RESET);
-        warn("attempting to realloc a previously-freed chunk");
-        log("%s    |   * malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_MALLOC]), COLOR_RESET);
-        log("%s    |   * free()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(orig_chunk->ops[STATE_FREE]), COLOR_RESET);
+        log_heap("\n");
+        warn_heap("attempting to realloc a previously-freed chunk");
+        warn_heap2("malloc()'d in operation " SYM, orig_chunk->ops[STATE_MALLOC]);
+        warn_heap2("free()'d in operation " SYM, orig_chunk->ops[STATE_FREE]);
     } else if (ptr && !orig_chunk) {
         // ptr && because https://github.com/Arinerron/heaptrace/issues/9
         //   0x0 is a special value
-        log("%s\n", COLOR_RESET);
-        warn("attempting to realloc a chunk that was never malloc'd");
+        log_heap("\n");
+        warn_heap("attempting to realloc a chunk that was never malloc'd");
     }
 
     check_oid(oid, 1); // see if it's time to pause
@@ -129,18 +129,18 @@ void pre_realloc(uint64_t iptr, uint64_t isize) {
 
 
 void post_realloc(uint64_t new_ptr) {
-    log("%s=  %s0x%llx%s", COLOR_LOG, BOLD((long long unsigned int)new_ptr));
+    log_heap("=  " PTR, PTR_ARG(new_ptr));
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
-        log("\t%s(%s#%lu%s%s=%s0x%llx%s)", COLOR_LOG_ITALIC, BOLD_SYMBOL(orig_chunk->ops[STATE_MALLOC]), COLOR_LOG_ITALIC, BOLD((long long unsigned int)ptr));
+        log("\t%s(" SYM_IT "=" PTR_IT ")", COLOR_LOG_ITALIC, orig_chunk->ops[STATE_MALLOC], PTR_ARG(ptr));
     }
-    log("%s\n", COLOR_RESET);
+    log_heap("\n");
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
     Chunk *new_chunk = find_chunk(new_ptr);
 
     if (ptr == new_ptr) {
         // the chunk shrank
-        ASSERT(orig_chunk == new_chunk, "the new/old chunk are not equiv");
+        ASSERT(orig_chunk == new_chunk, "the new/old chunk are not equiv (new=" PTR ", old=" PTR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
         if (orig_chunk) {
             orig_chunk->size = size;
         } // the else condition is unnecessary because there's a check above for !orig_chunk
@@ -149,8 +149,8 @@ void post_realloc(uint64_t new_ptr) {
             // the chunk moved
             new_chunk = alloc_chunk(new_ptr);
             if (new_chunk->state == STATE_MALLOC) {
-                warn("realloc returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption");
-                log("%s    |   * first malloc()'d in operation %s#%lu%s%s\n", COLOR_ERROR, BOLD_ERROR(new_chunk->ops[STATE_MALLOC]), COLOR_RESET);
+                warn_heap("realloc returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption");
+                warn_heap2("first malloc()'d in operation " SYM, new_chunk->ops[STATE_MALLOC]);
             }
 
             new_chunk->state = STATE_MALLOC;
