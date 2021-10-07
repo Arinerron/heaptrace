@@ -12,8 +12,7 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
     }
 
     uint64_t orig_data = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, vaddr, 0L);
-    uint8_t orig_byte = (uint8_t)(orig_data & 0xff);
-    //printf("Installing \"%s\" breakpoint in child at %p. Original data: 0x%x\n", bp->name, vaddr, orig_data);
+    //log_heap("Installing \"%s\" breakpoint in child at %p. Original data: 0x%x\n", bp->name, vaddr, orig_data);
 
     bp->_is_inside = 0;
     bp->_bp = 0;
