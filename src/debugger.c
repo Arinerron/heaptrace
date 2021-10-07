@@ -204,7 +204,7 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
     if (se->type == SE_TYPE_STATIC) {
         uint64_t bin_base = get_binary_base(pid);
         return bin_base + se->offset;
-    } else if (se->type == SE_TYPE_DYNAMIC) {
+    } else if (se->type == SE_TYPE_DYNAMIC || se->type == SE_TYPE_DYNAMIC_PLT) {
         uint64_t libc_base = get_libc_base(pid);
         if (!libc_base) return 0;
         //printf("using libc base %p\n", libc_base);
@@ -212,6 +212,9 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
         //printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
         uint64_t got_ptr = bin_base + se->offset;
         uint64_t got_val = ptrace(PTRACE_PEEKDATA, pid, got_ptr, NULL);
+        if (se->type == SE_TYPE_DYNAMIC_PLT) {
+            got_val -= (uint64_t)0x6; // see https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
+        }
         //printf("ptr %p val %p\n", got_ptr, got_val);
         return got_val;
     }
@@ -279,7 +282,7 @@ void start_debugger(char *chargv[]) {
 
     // ptrace section
     
-    int is_dynamic = se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC;
+    int is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
     int look_for_brk = is_dynamic;
 
     assert(!is_dynamic || (is_dynamic && interp_name));

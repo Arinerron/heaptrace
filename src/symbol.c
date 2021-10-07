@@ -206,7 +206,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
                     SymbolEntry *cse = ses[i];
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
-                        cse->type = SE_TYPE_DYNAMIC;
+                        cse->type = SE_TYPE_DYNAMIC_PLT;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
                     }
