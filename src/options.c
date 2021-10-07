@@ -11,9 +11,11 @@
 int args_parsed_yet = 0;
 int OPT_BREAK = 0;
 int OPT_VERBOSE = 0;
+int OPT_DEBUG = 0;
 
 static struct option long_options[] = {
     {"verbose", no_argument, NULL, 'v'},
+    {"debug", no_argument, NULL, 'D'},
     {"break-at", required_argument, NULL, 'b'},
     {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0}
@@ -40,6 +42,9 @@ int parse_args(int argc, char *argv[]) {
         switch (opt) {
             case 'v':
                 OPT_VERBOSE = 1;
+                break;
+            case 'D':
+                OPT_DEBUG = 1;
                 break;
             case 'b':
                 char *endp;

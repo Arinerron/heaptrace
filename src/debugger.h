@@ -21,8 +21,12 @@
 #define STATUS_SIGSEGV 0xb7f
 
 extern int CHILD_PID;
+extern uint64_t CHILD_LIBC_BASE;
 
+static int should_map_syms;
+
+uint64_t get_auxv_entry(int pid);
 void _check_breakpoints(int pid);
-uint64_t get_binary_base(int pid);
+int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end);
 void end_debugger(int pid, int status);
 void start_debugger(char *chargv[]);

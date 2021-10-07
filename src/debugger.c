@@ -1,6 +1,7 @@
 #include <sys/syscall.h>
 #include <inttypes.h>
 #include <sys/personality.h>
+#include <linux/auxvec.h>
 
 #include "debugger.h"
 #include "handlers.h"
@@ -51,25 +52,32 @@ void _check_breakpoints(int pid) {
                     if (!bp->_bp) { // this is a regular breakpoint
                         bp->_is_inside = 1;
 
-                        // install return value catcher breakpoint
-                        uint64_t val_at_reg_rsp = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, regs.rsp, 0L);
-                        Breakpoint *bp2 = (Breakpoint *)malloc(sizeof(struct Breakpoint));
-                        bp2->name = "_tmp";
-                        bp2->addr = val_at_reg_rsp;
-                        bp2->pre_handler = 0;
-                        bp2->post_handler = 0;
-                        _add_breakpoint(pid, bp2);
-                        bp2->_bp = bp;
+                        if (bp->post_handler) {
+                            // install return value catcher breakpoint
+                            uint64_t val_at_reg_rsp = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, regs.rsp, 0L);
+                            Breakpoint *bp2 = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+                            bp2->name = "_tmp";
+                            bp2->addr = val_at_reg_rsp;
+                            bp2->pre_handler = 0;
+                            bp2->post_handler = 0;
+                            _add_breakpoint(pid, bp2);
+                            bp2->_bp = bp;
+                        }
 
                         // reinstall original breakpoint
                         ptrace(PTRACE_POKEDATA, pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                     } else { // this is a return value catcher breakpoint
                         Breakpoint *orig_bp = bp->_bp;
-                        if (orig_bp->post_handler) {
-                            ((void(*)(uint64_t))orig_bp->post_handler)(regs.rax);
+                        if (orig_bp) {
+                            if (orig_bp->post_handler) {
+                                ((void(*)(uint64_t))orig_bp->post_handler)(regs.rax);
+                            }
+                            _remove_breakpoint(pid, bp);
+                            orig_bp->_is_inside = 0;
+                        } else {
+                            // we never installed a return value catcher breakpoint!
+                            bp->_is_inside = 0;
                         }
-                        _remove_breakpoint(pid, bp);
-                        orig_bp->_is_inside = 0;
                     }
                 } else {
                     // reinstall original breakpoint
@@ -84,7 +92,7 @@ void _check_breakpoints(int pid) {
 }
 
 
-uint64_t get_binary_base(int pid) {
+int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end) {
     // get the full path to the binary
     char *exepath = malloc(MAX_PATH_SIZE + 1);
     char *fname = malloc(MAX_PATH_SIZE + 1);
@@ -100,12 +108,14 @@ uint64_t get_binary_base(int pid) {
 
     FILE *f = fopen(mapspath, "r");
     
-    uint64_t binary_base;
+    uint64_t binary_base = 0;
+    uint64_t binary_end = 0;
     while (1) {
         uint64_t cur_binary_base = 0;
+        uint64_t cur_binary_end = 0;
         int _tmp[9]; // sorry I'm a terible programmer
 
-        if (fscanf(f, "%llx-%x", &cur_binary_base, &_tmp) == EOF) { // 7f738fb9f000-7f738fba0000
+        if (fscanf(f, "%llx-%llx", &cur_binary_base, &cur_binary_end) == EOF) { // 7f738fb9f000-7f738fba0000
             break;
         }
 
@@ -126,9 +136,14 @@ uint64_t get_binary_base(int pid) {
 
         //printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
         if (strcmp(fname, cur_fname) == 0) {
-            //printf("Found it!\n");
-            // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
-            binary_base = cur_binary_base;
+            //debug("fname %s: binary_base: %llx, binary_end: %llx\n", fname, cur_binary_base, cur_binary_end);
+            if (!binary_base || cur_binary_base < binary_base) {
+                binary_base = cur_binary_base;
+            }
+            if (!binary_end || cur_binary_end > binary_end) {
+                binary_end = cur_binary_end;
+            }
+        } else if (binary_base && binary_end) { // if we already resolved and are now past those entries
             free(cur_fname);
             break;
         }
@@ -136,9 +151,12 @@ uint64_t get_binary_base(int pid) {
         free(cur_fname);
     }
 
+    *bin_start = binary_base;
+    *bin_end = binary_end;
+
     fclose(f);
     free(mapspath);
-    return binary_base;
+    return binary_base && binary_end;
 }
 
 
@@ -201,25 +219,58 @@ uint64_t get_libc_base(int pid) {
 
 
 static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
+    uint64_t bin_base = 0;
+    uint64_t bin_end = 0;
+
     if (se->type == SE_TYPE_STATIC) {
-        uint64_t bin_base = get_binary_base(pid);
+        get_binary_location(pid, &bin_base, &bin_end);
+        debug(". bin_base: %p\n", bin_base);
         return bin_base + se->offset;
     } else if (se->type == SE_TYPE_DYNAMIC || se->type == SE_TYPE_DYNAMIC_PLT) {
         uint64_t libc_base = get_libc_base(pid);
         if (!libc_base) return 0;
+        get_binary_location(pid, &bin_base, &bin_end);
+        debug(". bin_base: %p, libc_base: %p\n", bin_base, libc_base);
         //printf("using libc base %p\n", libc_base);
-        uint64_t bin_base = get_binary_base(pid);
-        //printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
+        ////printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
         uint64_t got_ptr = bin_base + se->offset;
         uint64_t got_val = ptrace(PTRACE_PEEKDATA, pid, got_ptr, NULL);
-        if (se->type == SE_TYPE_DYNAMIC_PLT) {
-            got_val -= (uint64_t)0x6; // see https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
+
+        debug(". peeked %p at GOT entry %p for %s (%d)\n", got_val, got_ptr, se->name, se->type);
+        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_base && got_val <= bin_end)) { // check if this is in the PLT or if it's resolved to libc
+            got_val -= (uint64_t)0x6;
+            // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
+            // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
         }
-        //printf("ptr %p val %p\n", got_ptr, got_val);
+
         return got_val;
     }
 
     return 0;
+}
+
+
+uint64_t get_auxv_entry(int pid) {
+    char *auxvpath = malloc(MAX_PATH_SIZE + 1);
+    snprintf(auxvpath, MAX_PATH_SIZE, "/proc/%d/auxv", pid);
+    FILE *f = fopen(auxvpath, "r");
+
+    unsigned long at_type;
+    unsigned long at_value;
+    unsigned long retval = 0;
+    while (1) {
+        if (!fread(&at_type, sizeof at_type, 1, f)) break;
+        if (!fread(&at_value, sizeof at_value, 1, f)) break;
+        //debug("AT_ENTRY=%lu, at_type=%lu, at_value=%lu\n", AT_ENTRY, at_type, at_value);
+        if (at_type == AT_ENTRY) {
+            retval = at_value;
+            break;
+        }
+    }
+
+    fclose(f);
+    free(auxvpath);
+    return retval;
 }
 
 
@@ -241,8 +292,25 @@ void end_debugger(int pid, int status) {
 }
 
 
+uint64_t CHILD_LIBC_BASE = 0;
+
+
+// this is triggered by a breakpoint. The address to _start (entry) is stored 
+// in auxv and fetched on the first run.
+void _pre_entry() {
+    uint64_t libc_base = get_libc_base(CHILD_PID);
+    if (libc_base) {
+        debug("found libc_base in _pre_entry: %p\n", libc_base);
+        CHILD_LIBC_BASE = libc_base;
+        should_map_syms = 1;
+    }
+}
+
+
+static int should_map_syms = 0;
+
 void start_debugger(char *chargv[]) {
-    SymbolEntry *se_malloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_malloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
     se_malloc->name = "malloc";
     Breakpoint *bp_malloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_malloc->name = "malloc";
@@ -251,12 +319,12 @@ void start_debugger(char *chargv[]) {
     bp_malloc->post_handler = post_malloc;
 
     // TODO calloc
-    SymbolEntry *se_calloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_calloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
     se_calloc->name = "calloc";
     Breakpoint *bp_calloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_calloc->name = "calloc";
 
-    SymbolEntry *se_free = (SymbolEntry *) malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_free = (SymbolEntry *)malloc(sizeof(SymbolEntry));
     se_free->name = "free";
     Breakpoint *bp_free = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_free->name = "free";
@@ -264,7 +332,7 @@ void start_debugger(char *chargv[]) {
     bp_free->pre_handler_nargs = 1;
     bp_free->post_handler = post_free;
 
-    SymbolEntry *se_realloc = (SymbolEntry *) malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_realloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
     se_realloc->name = "realloc";
     Breakpoint *bp_realloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_realloc->name = "realloc";
@@ -309,27 +377,29 @@ void start_debugger(char *chargv[]) {
         }
     } else {
         int status;
-        int first_signal = !is_dynamic;
+        should_map_syms = !is_dynamic;
+        int first_signal = 1; // XXX: this is confusing. refactor later.
         CHILD_PID = child;
 
         /*wait(NULL);
         ptrace(PTRACE_CONT, child, 0L, 0L);*/
         //printf("Parent process\n");
         while(waitpid(child, &status, 0)) {
-            //printf("... paused process. Signal: %p\n", status); // TODO add debug func
+            //debug("... paused process. Signal: %p\n", status);
 
             struct user_regs_struct regs;
             ptrace(PTRACE_GETREGS, child, 0, &regs);
 
-            if (look_for_brk && regs.orig_rax == SYS_brk) { // XXX: how can we KNOW this is a syscall?
-                ptrace(PTRACE_SYSCALL, child, 0, 0);
-                waitpid(child, &status, 0); // run till end of syscall
-                uint64_t libc_base = get_libc_base(child);
-                if (libc_base) {
-                    first_signal = 1; // trigger _calc_offsets
-                    look_for_brk = 0;
-                }
-                //goto continueptrace;
+            if (first_signal) {
+                first_signal = 0;
+                uint64_t at_entry = get_auxv_entry(child);
+                Breakpoint *bp_entry = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+                bp_entry->name = "_entry";
+                bp_entry->addr = at_entry;
+                bp_entry->pre_handler = _pre_entry;
+                bp_entry->pre_handler_nargs = 0;
+                bp_entry->post_handler = 0;
+                _add_breakpoint(child, bp_entry);
             }
 
             if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV) {
@@ -337,46 +407,27 @@ void start_debugger(char *chargv[]) {
             } else if (status == 0x57f) { // status SIGTRAP
                 // nothing
             } else {
+                debug("warning: hit unknown status code %d\n", status);
             }
 
-            if (first_signal) {
-                first_signal = 0;
-                //printf("Child binary base: %p\n", bin_base);
-
+            _check_breakpoints(child);
+            if (should_map_syms) {
+                debug("Instructed to map symbols (should_map_syms == 1)\n");
+                should_map_syms = 0;
                 bp_malloc->addr = _calc_offset(child, se_malloc);
                 bp_calloc->addr = _calc_offset(child, se_calloc);
                 bp_free->addr = _calc_offset(child, se_free);
                 bp_realloc->addr = _calc_offset(child, se_realloc);
-
-                //printf("addr: %p\n", bp_malloc->addr);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);
                 _add_breakpoint(child, bp_calloc);
                 _add_breakpoint(child, bp_free);
                 _add_breakpoint(child, bp_realloc);
-
-                for (int i = 0; i < 4; i++) {
-                    //uint64_t vaddr = bin_base + ses[i]->offset;
-                    // XXX/TODO: fix PIE
-                }
-            } else {
-                _check_breakpoints(child);
             }
 
-            /*exit(0);
-
-            struct user_regs_struct regs;
-            ptrace(PTRACE_GETREGS, child, NULL, &regs);
-            ptrace(PTRACE_SYSCALL, child, NULL, NULL);*/
-
-continueptrace:
-            if (look_for_brk) {
-                ptrace(PTRACE_SYSCALL, child, 0, 0);
-            } else {
-                ptrace(PTRACE_CONT, child, 0L, 0L);
-            }
+            ptrace(PTRACE_CONT, child, 0L, 0L);
         }
-        printf("While loop exited. Status: %d, exit status: %d\n", status, WEXITSTATUS(status));
+        warn("while loop exited. Please report this. Status: %d, exit status: %d\n", status, WEXITSTATUS(status));
     }
 }
