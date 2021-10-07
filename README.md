@@ -1,6 +1,6 @@
 # About
 
-heaptrace is a ptrace-based tool similar to ltrace for tracking glibc heap operations (malloc, free, realloc) in ELF64 binaries. It is useful for debugging binaries and doing heap pwn.
+heaptrace is a `ptrace`-based tool similar to ltrace for tracking glibc heap operations (`malloc`, `free`, `realloc`) in ELF64 binaries. It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
@@ -13,7 +13,7 @@ heaptrace is a ptrace-based tool similar to ltrace for tracking glibc heap opera
 ## Other Features
 
 * Supports all 64-bit dynamically-linked (glibc) or statically-linked ELF64 binaries. Even if PIE is enabled or the binary is compiled without a PLT.
-* Automatically resolves malloc/free/realloc symbols in libc and the binary, and soon will support manually inputting addresses for when ELF binaries are stripped.
+* Automatically resolves `malloc`/`free`/`realloc` symbols in libc and the binary, and soon will support manually inputting addresses for when ELF binaries are stripped.
 * Disables ASLR so that heap pointers are the same across multiple deterministic executions.
 
 ## Setup
