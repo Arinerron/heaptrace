@@ -252,8 +252,6 @@ void start_debugger(char *chargv[]) {
     se_calloc->name = "calloc";
     Breakpoint *bp_calloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
     bp_calloc->name = "calloc";
-    bp_calloc->pre_handler = bp_calloc_pre_handler;
-    bp_calloc->pre_handler_nargs = 2;
 
     SymbolEntry *se_free = (SymbolEntry *) malloc(sizeof(SymbolEntry));
     se_free->name = "free";
