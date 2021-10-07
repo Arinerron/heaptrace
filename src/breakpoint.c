@@ -12,7 +12,7 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
     }
 
     uint64_t orig_data = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, vaddr, 0L);
-    //log_heap("Installing \"%s\" breakpoint in child at %p. Original data: 0x%x\n", bp->name, vaddr, orig_data);
+    debug("installing \"%s\" breakpoint in child at %p. Original data: 0x%x\n", bp->name, vaddr, orig_data);
 
     bp->_is_inside = 0;
     bp->_bp = 0;
@@ -50,6 +50,7 @@ void _remove_breakpoint(int pid, Breakpoint *bp) {
 
 
 void _remove_breakpoints(int pid) {
+    debug("removing all breakpoints...\n");
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
         if (breakpoints[i]) {
             _remove_breakpoint(pid, breakpoints[i]);

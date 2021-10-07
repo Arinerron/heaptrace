@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "options.h"
+
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
 #define COLOR_LOG_ITALIC "\e[3;36m"
@@ -22,10 +24,12 @@
 #define COLOR_WARN "\e[0;93m"
 #define COLOR_WARN_BOLD "\e[1;93m"
 #define COLOR_RESET "\e[0m"
+#define COLOR_RESET_ITALIC "\e[3m"
 
 extern FILE *output_fd;
 
 #define log(f_, ...) { fprintf(output_fd, (f_), ##__VA_ARGS__); } // XXX: ansi colors to file?
+#define debug(fmt, ...) {if (OPT_DEBUG) { fprintf(output_fd, ("[ ] " COLOR_RESET_ITALIC fmt COLOR_RESET), ##__VA_ARGS__); }}
 #define warn(fmt, ...) { fprintf(output_fd, (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
 #define warn2(f_, fmt, ...) { fprintf((f_), (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
 #define error(fmt, ...) { fprintf(output_fd, (COLOR_ERROR "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
