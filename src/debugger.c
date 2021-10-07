@@ -9,34 +9,6 @@
 
 int CHILD_PID = 0;
 
-void bp_malloc_pre_handler(uint64_t size) {
-    printf("... malloc(size=%x)\n", size);    
-}
-
-
-void bp_malloc_post_handler(uint64_t retval) {
-    printf("\t-> %p\n", retval);
-}
-
-
-void bp_free_pre_handler(uint64_t ptr) {}
-
-
-void bp_free_post_handler(uint64_t retval) {}
-
-
-void bp_calloc_pre_handler(uint64_t nmemb, uint64_t size) {}
-
-
-void bp_calloc_post_handler(uint64_t retval) {}
-
-
-void bp_realloc_pre_handler(uint64_t ptr, uint64_t size) {}
-
-
-void bp_realloc_post_handler(uint64_t retval) {}
-
-
 void _check_breakpoints(int pid) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
