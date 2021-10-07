@@ -161,6 +161,10 @@ int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end) {
 
 
 uint64_t get_libc_base(int pid) {
+    if (CHILD_LIBC_BASE) {
+        return CHILD_LIBC_BASE;
+    }
+
     // TODO: get the full path to the libc
     char *fname = "/usr/lib/libc-2.33.so";
 
