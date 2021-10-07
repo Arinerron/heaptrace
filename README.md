@@ -1,10 +1,20 @@
 # About
 
-heaptrace is a ptrace-based tool similar to ltrace for tracking glibc heap operations (malloc, free, realloc). It is useful for debugging binaries and doing heap pwn.
+heaptrace is a ptrace-based tool similar to ltrace for tracking glibc heap operations (malloc, free, realloc) in ELF64 binaries. It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
-It allows users to set breakpoints at heap operations, prints out the heap operations using symbols instead of pointers, and is able to automatically identify and describe both double free vulnerabilities and memory leakage issues.
+## Main Features
+
+* Prints out heap operations using symbols instead of pointers. This allows users to understand what is going on on the heap without having to compare pointer values at each operation.
+* Detects some forms of heap corruption, double free vulnerabilities, and memory leakage issues.
+* Allows users to set "breakpoints" at any heap operation number (`oid`). When heaptrace reaches the requested `oid` number, it immediately detaches itself from the tracee (the target binary) and attaches the GNU debugger (gdb). This allows users to easily debug the heap interactively at any point.
+
+## Other Features
+
+* Supports all 64-bit dynamically-linked (glibc) or statically-linked ELF64 binaries. Even if PIE is enabled or the binary is compiled without a PLT.
+* Automatically resolves malloc/free/realloc symbols in libc and the binary, and soon will support manually inputting addresses for when ELF binaries are stripped.
+* Disables ASLR so that heap pointers are the same across multiple deterministic executions.
 
 ## Setup
 
@@ -17,9 +27,11 @@ $ ./heaptrace ./my-binary
 
 ## Usage
 
-You can specify additional arguments using the `HEAPTRACE_ARGS` environmental variable.
+You can specify arguments to heaptrace before specifying the binary name:
 
 ```
+Usage: ./heaptrace [-v] [-b/--break-at <oid>] [-o/--output <filename>] <binary> [args...]
+
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
                             stderr (default).
 
@@ -32,10 +44,10 @@ You can specify additional arguments using the `HEAPTRACE_ARGS` environmental va
                             stored in the ELF.
 ```
 
-For example, if you wanted to automatically attach gdb at operation #6, you would execute:
+For example, if you wanted to automatically attach gdb at operation #3, you would execute:
 
 ```
-./heaptrace -b 6 ./my-binary
+./heaptrace --break-at=3 ./my-binary
 ```
 
 ![screenshot-break.png](screenshot-break.png)
