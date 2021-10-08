@@ -406,6 +406,12 @@ void start_debugger(char *chargv[]) {
             if (first_signal) {
                 first_signal = 0;
                 uint64_t at_entry = get_auxv_entry(child);
+                if (!at_entry) {
+                    fatal("unable to locate at_entry auxiliary vector. Please report this.\n");
+                    abort();
+                    // temporary solution is to uncomment the should_map_syms = !is_dynamic
+                    // see blame for this commit, or see commit after commit 2394278.
+                }
                 Breakpoint *bp_entry = (Breakpoint *)malloc(sizeof(struct Breakpoint));
                 bp_entry->name = "_entry";
                 bp_entry->addr = at_entry;
