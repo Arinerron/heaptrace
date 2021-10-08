@@ -301,8 +301,9 @@ void _pre_entry() {
     if (libc_base) {
         debug("found libc_base in _pre_entry: %p\n", libc_base);
         CHILD_LIBC_BASE = libc_base;
-        should_map_syms = 1;
     }
+
+    should_map_syms = 1;
 }
 
 
@@ -388,7 +389,8 @@ void start_debugger(char *chargv[]) {
         }
     } else {
         int status;
-        should_map_syms = !is_dynamic;
+        //should_map_syms = !is_dynamic;
+        should_map_syms = 0;
         int first_signal = 1; // XXX: this is confusing. refactor later.
         CHILD_PID = child;
 
