@@ -7,6 +7,8 @@
 #include "handlers.h"
 #include "heap.h"
 #include "logging.h"
+#include "breakpoint.h"
+#include "options.h"
 
 int CHILD_PID = 0;
 
@@ -222,19 +224,12 @@ uint64_t get_libc_base(int pid) {
 }
 
 
-static uint64_t _calc_offset(int pid, SymbolEntry *se) { // TODO: cleanup
-    uint64_t bin_base = 0;
-    uint64_t bin_end = 0;
-
+static uint64_t _calc_offset(int pid, SymbolEntry *se, uint64_t bin_base, uint64_t bin_end, uint64_t libc_base) { // TODO: cleanup
     if (se->type == SE_TYPE_STATIC) {
-        get_binary_location(pid, &bin_base, &bin_end);
-        debug(". bin_base: %p\n", bin_base);
         return bin_base + se->offset;
     } else if (se->type == SE_TYPE_DYNAMIC || se->type == SE_TYPE_DYNAMIC_PLT) {
         uint64_t libc_base = get_libc_base(pid);
         if (!libc_base) return 0;
-        get_binary_location(pid, &bin_base, &bin_end);
-        debug(". bin_base: %p, libc_base: %p\n", bin_base, libc_base);
         //printf("using libc base %p\n", libc_base);
         ////printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
         uint64_t got_ptr = bin_base + se->offset;
@@ -354,12 +349,24 @@ void start_debugger(char *chargv[]) {
 
     // ptrace section
     
+    int show_banner = 0;
     int is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
+    int is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED);
+
+    if (is_stripped && !symbol_defs_str) {
+        warn("Binary appears to be stripped (heaptrace was not able to resolve any symbols). Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\n  See the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
+        show_banner = 1;
+    }
+
     int look_for_brk = is_dynamic;
 
     assert(!is_dynamic || (is_dynamic && interp_name));
     if (interp_name) {
         //get_glibc_path(interp_name, chargv[0]);
+    }
+
+    if (show_banner) {
+        log(COLOR_LOG "\n================================================================================\n" COLOR_RESET "\n");
     }
 
     free(interp_name);
@@ -418,10 +425,21 @@ void start_debugger(char *chargv[]) {
             if (should_map_syms) {
                 debug("Instructed to map symbols (should_map_syms == 1)\n");
                 should_map_syms = 0;
-                bp_malloc->addr = _calc_offset(child, se_malloc);
-                bp_calloc->addr = _calc_offset(child, se_calloc);
-                bp_free->addr = _calc_offset(child, se_free);
-                bp_realloc->addr = _calc_offset(child, se_realloc);
+
+                uint64_t bin_base = 0;
+                uint64_t bin_end = 0;
+                get_binary_location(child, &bin_base, &bin_end);
+                uint64_t libc_base = get_libc_base(child);
+                debug("Using bin_base: %p, libc_base: %p\n", bin_base, libc_base);
+
+                bp_malloc->addr = _calc_offset(child, se_malloc, bin_base, bin_end, libc_base);
+                bp_calloc->addr = _calc_offset(child, se_calloc, bin_base, bin_end, libc_base);
+                bp_free->addr = _calc_offset(child, se_free, bin_base, bin_end, libc_base);
+                bp_realloc->addr = _calc_offset(child, se_realloc, bin_base, bin_end, libc_base);
+                
+                Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc};
+                int bpsc = 4;
+                evaluate_symbol_defs(bps, bpsc, libc_base, bin_base);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);

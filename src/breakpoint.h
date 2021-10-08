@@ -13,6 +13,9 @@
 #include <elf.h>
 #include <errno.h>
 
+#ifndef BREAKPOINT_H
+#define BREAKPOINT_H
+
 typedef struct Breakpoint {
     char *name;
     uint64_t addr;
@@ -31,3 +34,5 @@ extern Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 void _add_breakpoint(int pid, Breakpoint *bp);
 void _remove_breakpoint(int pid, Breakpoint *bp);
 void _remove_breakpoints(int pid);
+
+#endif

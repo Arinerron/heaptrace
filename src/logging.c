@@ -1,6 +1,7 @@
 #include "logging.h"
 
 FILE *output_fd;
+int OPT_DEBUG = 0;
 
 // TODO: convert to elf parsing
 /*void describe_symbol(void *ptr) {

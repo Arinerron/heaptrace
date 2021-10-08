@@ -14,7 +14,6 @@
 #include <errno.h>
 
 #include "symbol.h"
-#include "breakpoint.h"
 
 #define MAX_PATH_SIZE 1024 // WARNING: if you change this, search for 1024 first to avoid buffer overflow. I hardcoded it in some places because idk how to concat const int to str conveniently lol
 
