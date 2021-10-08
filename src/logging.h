@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "options.h"
+extern int OPT_DEBUG; // print lots of debug info?
 
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
