@@ -1,6 +1,6 @@
 # About
 
-heaptrace is a `ptrace`-based tool similar to ltrace for tracking glibc heap operations (`malloc`, `free`, `realloc`) in ELF64 binaries. It is useful for debugging binaries and doing heap pwn.
+heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc heap operations (`malloc`, `free`, `realloc`) in ELF64 binaries. It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
@@ -29,7 +29,7 @@ $ trizen -S heaptrace-git
 ## Manual
 
 ```sh
-$ git clone https://github.com/Arinerron/heaptrace && cd heaptrace
+$ git clone https://github.com/Arinerron/heaptrace.git && cd heaptrace
 $ ./compile.sh
 ...
 $ ./heaptrace ./my-binary
@@ -68,5 +68,5 @@ For example, if you wanted to automatically attach gdb at operation #3, you woul
 ![screenshot-break.png](screenshot-break.png)
 
 
-See the wiki for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries: https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary
+See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries.
 
