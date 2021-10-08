@@ -16,6 +16,7 @@ char *symbol_defs_str = "";
 static struct option long_options[] = {
     {"verbose", no_argument, NULL, 'v'},
     {"debug", no_argument, NULL, 'D'},
+    {"environment", required_argument, NULL, 'e'},
     {"break-at", required_argument, NULL, 'b'},
     {"symbols", required_argument, NULL, 's'},
     {"output", required_argument, NULL, 'o'},
@@ -24,7 +25,7 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <binary> [args...]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
     exit(EXIT_FAILURE);
 }
 
@@ -39,7 +40,8 @@ int parse_args(int argc, char *argv[]) {
         break_ats[i] = 0;
     }
 
-    while ((opt = getopt_long(argc, argv, "vb:o:", long_options, NULL)) != -1) {
+    extern char **environ;
+    while ((opt = getopt_long(argc, argv, "vDe:s:b:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v':
                 OPT_VERBOSE = 1;
@@ -50,6 +52,16 @@ int parse_args(int argc, char *argv[]) {
                 break;
             case 's':
                 symbol_defs_str = (char *)optarg;
+                break;
+            case 'e':
+                char *_eq = strstr(optarg, "=");
+                if (!_eq) {
+                    setenv(optarg, "", 1);
+                } else {
+                    *_eq = '\x00';
+                    char *val = _eq + 1;
+                    setenv(optarg, val, 1);
+                }
                 break;
             case 'b':
                 char *endp;

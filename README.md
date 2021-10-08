@@ -40,10 +40,13 @@ $ ./heaptrace ./my-binary
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: ./heaptrace [-v] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <binary> [args...]
+Usage: ./heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
 
--o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
-                            stderr (default).
+-e <environ>, --environment=<environ>
+                            Sets a single environmental variable. Useful for 
+                            setting runtime settings for the target such as 
+                            LD_PRELOAD=./libc.so.6 without having them affect 
+                            heaptrace's runtime configuration.
 
 -s <defs>, --symbols=<defs> Override the values heaptrace detects for the 
                             malloc/free/realloc/calloc symbols. If the binary 
@@ -53,6 +56,9 @@ Usage: ./heaptrace [-v] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--ou
 -b <oid>, --break-at=<oid>  Send SIGSTOP to the process at heap operation 
                             specified in `oid` and attach the GNU debugger 
                             (gdb) to the process.
+
+-o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
+                            stderr (default).
 
 -v, --verbose               Print verbose information such as line numbers in
                             source code given the required debugging info is
@@ -66,7 +72,6 @@ For example, if you wanted to automatically attach gdb at operation #3, you woul
 ```
 
 ![screenshot-break.png](screenshot-break.png)
-
 
 See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries.
 

@@ -409,15 +409,14 @@ void start_debugger(char *chargv[]) {
 
     int child = fork();
     if (!child) {
-        //printf("Starting process %s\n", chargv[0]);
-        
         // disable ASLR
         if (personality(ADDR_NO_RANDOMIZE) == -1) {
             warn("failed to disable aslr for child\n");
         }
 
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        if (execvp(chargv[0], chargv) == -1) {
+        extern char **environ;
+        if (execvpe(chargv[0], chargv, environ) == -1) {
             fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
             exit(1);
         }
