@@ -86,6 +86,8 @@ int parse_args(int argc, char *argv[]) {
 
 
 void evaluate_symbol_defs(Breakpoint **bps, int bpsc, uint64_t libc_base, uint64_t bin_base) {
+    if (!strlen(symbol_defs_str)) return;
+
     char *orig_str = strdup(symbol_defs_str);
     size_t orig_str_len = strlen(orig_str);
     char *buf = malloc(orig_str_len + 1);
@@ -169,6 +171,10 @@ parsevalue:
                                 warn("two different breakpoints share the same address (\"%s\" and \"%s\"). Unexpected behavior will occur.\n", sym_name, bp->name);
                             }
                         }
+                    }
+
+                    if (!_resolved) {
+                        warn("unable to resolve configured symbol name \"%s\" (address %p), ignoring...\n", sym_name, sym_val);
                     }
 
                     _next_is_sym_name = 1; // because we want to ignore whitespace
