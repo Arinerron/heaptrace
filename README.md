@@ -16,7 +16,17 @@ heaptrace is a `ptrace`-based tool similar to ltrace for tracking glibc heap ope
 * Automatically resolves `malloc`/`free`/`realloc` symbols in libc and the binary, and soon will support manually inputting addresses for when ELF binaries are stripped.
 * Disables ASLR so that heap pointers are the same across multiple deterministic executions.
 
-## Setup
+## Installation
+
+### Arch User Repository (PKGBUILD)
+
+Use your preferred AUR helper to install the [`heaptrace-git`](https://aur.archlinux.org/packages/heaptrace-git/) package.
+
+```
+$ trizen -S heaptrace-git
+```
+
+### Manual
 
 ```sh
 $ git clone https://github.com/Arinerron/heaptrace && cd heaptrace
