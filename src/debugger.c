@@ -178,6 +178,7 @@ uint64_t get_libc_base(int pid) {
     FILE *f = fopen(mapspath, "r");
     
     uint64_t binary_base = 0 ;
+    char *cur_fname = malloc(MAX_PATH_SIZE + 1);
     while (1) { // TODO: standardize this code!!!
         uint64_t cur_binary_base = 0;
         uint64_t _tmp[9]; // sorry I'm a terible programmer
@@ -199,26 +200,25 @@ uint64_t get_libc_base(int pid) {
         if(*_tmp != 0) {
             fscanf(f, " ");
 
-            char *cur_fname = malloc(MAX_PATH_SIZE + 1);
             memset(cur_fname, 0, sizeof cur_fname);
             fscanf(f, "%1024s\n", cur_fname); // XXX: sometimes reads in the next line. Usually works.
             // XXX: technically a filename can contain a newline
 
             //printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
-            if (strcmp(fname, cur_fname) == 0) {
+            //if (strcmp(fname, cur_fname) == 0) {
+            if (strstr(cur_fname, "libc")) { // quite a hack
                 // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
                 binary_base = cur_binary_base;
-                free(cur_fname);
                 break;
             }
 
-            free(cur_fname);
         } else {
             fscanf(f, "\n");
         }
     }
 
     fclose(f);
+    free(cur_fname);
     free(mapspath);
     return binary_base;
 }
@@ -358,7 +358,7 @@ void start_debugger(char *chargv[]) {
     int is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED);
 
     if (is_stripped && !strlen(symbol_defs_str)) {
-        warn("Binary appears to be stripped (heaptrace was not able to resolve any symbols). Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
+        warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
         show_banner = 1;
     }
 
