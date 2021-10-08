@@ -350,12 +350,15 @@ void start_debugger(char *chargv[]) {
 
     // ptrace section
     
+    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n" COLOR_RESET);
+    
+    
     int show_banner = 0;
     int is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
     int is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED);
 
-    if (is_stripped && !symbol_defs_str) {
-        warn("Binary appears to be stripped (heaptrace was not able to resolve any symbols). Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\n  See the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
+    if (is_stripped && !strlen(symbol_defs_str)) {
+        warn("Binary appears to be stripped (heaptrace was not able to resolve any symbols). Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
         show_banner = 1;
     }
 
@@ -367,8 +370,9 @@ void start_debugger(char *chargv[]) {
     }
 
     if (show_banner) {
-        log(COLOR_LOG "\n================================================================================\n" COLOR_RESET "\n");
+        log(COLOR_LOG "================================================================================\n" COLOR_RESET);
     }
+    log("\n");
 
     free(interp_name);
     interp_name = 0;

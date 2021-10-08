@@ -4,10 +4,14 @@
 int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name) {
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
+        fatal("failed to open target.\n");
+        exit(1);
         return 0;
     }
     if (fseek(tfile, 0, SEEK_END)) {
         fclose(tfile);
+        fatal("failed to seek target.\n");
+        exit(1);
         return 0;
     }
     long tfile_size = ftell(tfile);
@@ -27,15 +31,18 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
     Elf64_Ehdr elf_hdr;
     memmove(&elf_hdr, tbytes, sizeof(elf_hdr));
     if (memcmp(elf_hdr.e_ident, expected_magic, sizeof(expected_magic)) != 0) {
-        printf("Target is not an ELF executable\n");
+        fatal("target is not an ELF executable.\n");
+        exit(1);
         return 0;
     }
     if (elf_hdr.e_ident[EI_CLASS] != ELFCLASS64) {
-        printf("Sorry, only ELF-64 is supported.\n");
+        fatal("target is not an ELF64 executable.\n");
+        exit(1);
         return 0;
     }
     if (elf_hdr.e_machine != EM_X86_64) {
-        printf("Sorry, only x86-64 is supported.\n");
+        fatal("target is not x86-64.\n");
+        exit(1);
         return 0;
     }
 

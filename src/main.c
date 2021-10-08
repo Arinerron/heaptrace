@@ -27,22 +27,28 @@ int main(int argc, char *argv[]) {
     }
     chargv[argc - start_at] = 0;
 
+    struct stat path_stat;
     if (access(chargv[0], F_OK) != 0) {
         fatal("unable to execute \"%s\": file does not exist.\n", chargv[0]);
-        log(COLOR_WARN "hint: are you sure you specified the correct filename?\n" COLOR_RESET);
+        log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
         exit(1);
     } else if (access(chargv[0], R_OK) != 0) {
-        fatal("permission to read \"%s\" denied.\n", chargv[0]);
+        fatal("permission to read target \"%s\" denied.\n", chargv[0]);
         log(COLOR_WARN "hint: chmod +r %s\n" COLOR_RESET, chargv[0]);
         exit(1);
     } else if (access(chargv[0], X_OK) != 0) {
-        fatal("permission to execute \"%s\" denied.\n", chargv[0]);
+        fatal("permission to execute target \"%s\" denied.\n", chargv[0]);
         log(COLOR_WARN "hint: chmod +x %s\n" COLOR_RESET, chargv[0]);
         exit(1);
+    } else {
+        stat(chargv[0], &path_stat);
+        if (!S_ISREG(path_stat.st_mode)) {
+            fatal("unable to execute \"%s\": target is not a regular file.\n", chargv[0]);
+            log(COLOR_WARN "hint: did you accidentally specify the path to a directory?\n" COLOR_RESET);
+            exit(1);
+        }
     }
 
-    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n" COLOR_RESET "\n");
-    
     start_debugger(chargv);
     return 0;
 }
