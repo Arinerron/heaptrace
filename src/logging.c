@@ -2,6 +2,7 @@
 
 FILE *output_fd;
 int OPT_DEBUG = 0;
+int OPT_VERBOSE = 0;
 
 // TODO: convert to elf parsing
 /*void describe_symbol(void *ptr) {

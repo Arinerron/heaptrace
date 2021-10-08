@@ -10,8 +10,6 @@
 #include "heap.h"
 
 int args_parsed_yet = 0;
-int OPT_BREAK = 0;
-int OPT_VERBOSE = 0;
 
 char *symbol_defs_str = "";
 
@@ -48,6 +46,7 @@ int parse_args(int argc, char *argv[]) {
                 break;
             case 'D':
                 OPT_DEBUG = 1;
+                OPT_VERBOSE = 1;
                 break;
             case 's':
                 symbol_defs_str = (char *)optarg;

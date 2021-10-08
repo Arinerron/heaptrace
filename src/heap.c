@@ -83,13 +83,11 @@ void check_oid(uint64_t oid, int prepend_newline) {
         args_parsed_yet = 1;
     }
 
-    int should_break = OPT_BREAK;
     // try reading from params second
-    if (!should_break) {
-        for (int i = 0; i < MAX_BREAK_ATS; i++) {
-            if (break_ats[i] == oid) {
-                should_break = 1;
-            }
+    int should_break = 0;
+    for (int i = 0; i < MAX_BREAK_ATS; i++) {
+        if (break_ats[i] == oid) {
+            should_break = 1;
         }
     }
 
@@ -128,10 +126,15 @@ uint64_t get_oid() {
 void show_stats() {
     uint64_t unfreed_sum = 0;
     Chunk cur_chunk;
+    int _prefix = 0; // hack for getting newlines right
     for (int i = 0; i < MAX_CHUNKS; i++) {
         cur_chunk = chunk_meta[i];
         if (cur_chunk.state == STATE_MALLOC) {
             if (OPT_VERBOSE) {
+                if (!_prefix) {
+                    _prefix = 1;
+                    log("\n");
+                }
                 log(COLOR_ERROR "* chunk malloc'd in operation " SYM COLOR_ERROR " was never freed\n", cur_chunk.ops[STATE_MALLOC]);
             }
             unfreed_sum += CHUNK_SIZE(cur_chunk.size);

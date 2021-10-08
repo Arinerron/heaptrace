@@ -26,6 +26,9 @@ static int should_map_syms;
 
 uint64_t get_auxv_entry(int pid);
 void _check_breakpoints(int pid);
+
 int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end);
+uint64_t get_libc_base(int pid, char **libc_path_out);
+
 void end_debugger(int pid, int status);
 void start_debugger(char *chargv[]);

@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include <sys/syscall.h>
 #include <inttypes.h>
+#include <string.h>
 #include <sys/personality.h>
 #include <linux/auxvec.h>
 
@@ -11,6 +13,7 @@
 #include "options.h"
 
 int CHILD_PID = 0;
+char *CHILD_LIBC_PATH = 0;
 
 void _check_breakpoints(int pid) {
     struct user_regs_struct regs;
@@ -162,7 +165,7 @@ int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end) {
 }
 
 
-uint64_t get_libc_base(int pid) {
+uint64_t get_libc_base(int pid, char **libc_path_out) {
     if (CHILD_LIBC_BASE) {
         return CHILD_LIBC_BASE;
     }
@@ -209,6 +212,7 @@ uint64_t get_libc_base(int pid) {
             if (strstr(cur_fname, "libc")) { // quite a hack
                 // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
                 binary_base = cur_binary_base;
+                *libc_path_out = strdup(cur_fname);
                 break;
             }
 
@@ -228,7 +232,7 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se, uint64_t bin_base, uint64
     if (se->type == SE_TYPE_STATIC) {
         return bin_base + se->offset;
     } else if (se->type == SE_TYPE_DYNAMIC || se->type == SE_TYPE_DYNAMIC_PLT) {
-        uint64_t libc_base = get_libc_base(pid);
+        uint64_t libc_base = get_libc_base(pid, &CHILD_LIBC_PATH);
         if (!libc_base) return 0;
         //printf("using libc base %p\n", libc_base);
         ////printf("bin base: %p, se offset: %p\n", bin_base, se->offset);
@@ -291,13 +295,39 @@ void end_debugger(int pid, int status) {
 }
 
 
-uint64_t CHILD_LIBC_BASE = 0;
+char *get_libc_version(char *libc_path) {
+    FILE *f = fopen(libc_path, "r");
+    if (!f) return 0;
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, f);
+    fclose(f);
+    string[fsize] = 0;
 
+    char *_prefix = " version ";
+    char *_version = memmem(string, fsize, _prefix, strlen(_prefix));
+    if (!_version) return 0;
+    _version += strlen(_prefix);
+    char *_period = strstr(_version, ".\n");
+    if (!_period) return 0;
+    *_period = '\x00';
+
+    char *version = strdup(_version);
+
+    free(string);
+
+    return version;
+}
+
+
+uint64_t CHILD_LIBC_BASE = 0;
 
 // this is triggered by a breakpoint. The address to _start (entry) is stored 
 // in auxv and fetched on the first run.
 void _pre_entry() {
-    uint64_t libc_base = get_libc_base(CHILD_PID);
+    uint64_t libc_base = get_libc_base(CHILD_PID, &CHILD_LIBC_PATH);
     if (libc_base) {
         debug("found libc_base in _pre_entry: %p\n", libc_base);
         CHILD_LIBC_BASE = libc_base;
@@ -383,13 +413,13 @@ void start_debugger(char *chargv[]) {
         
         // disable ASLR
         if (personality(ADDR_NO_RANDOMIZE) == -1) {
-            warn("failed to disable aslr\n");
+            warn("failed to disable aslr for child\n");
         }
 
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         if (execvp(chargv[0], chargv) == -1) {
-            fatal("failed to execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
-            abort();
+            fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", chargv[0], errno, strerror(errno)); // XXX: not thread safe
+            exit(1);
         }
     } else {
         int status;
@@ -435,13 +465,13 @@ void start_debugger(char *chargv[]) {
 
             _check_breakpoints(child);
             if (should_map_syms) {
-                debug("Instructed to map symbols (should_map_syms == 1)\n");
+                //debug("Instructed to map symbols (should_map_syms == 1)\n");
                 should_map_syms = 0;
 
                 uint64_t bin_base = 0;
                 uint64_t bin_end = 0;
                 get_binary_location(child, &bin_base, &bin_end);
-                uint64_t libc_base = get_libc_base(child);
+                uint64_t libc_base = get_libc_base(child, &CHILD_LIBC_PATH);
                 debug("Using bin_base: %p, libc_base: %p\n", bin_base, libc_base);
 
                 bp_malloc->addr = _calc_offset(child, se_malloc, bin_base, bin_end, libc_base);
@@ -458,6 +488,28 @@ void start_debugger(char *chargv[]) {
                 _add_breakpoint(child, bp_calloc);
                 _add_breakpoint(child, bp_free);
                 _add_breakpoint(child, bp_realloc);
+                
+                // print the type of binary etc
+                if (is_dynamic) {
+                    verbose(COLOR_RESET_BOLD "Dynamically-linked");
+                    if (is_stripped) verbose(", stripped");
+                    verbose(" binary")
+
+                    if (CHILD_LIBC_PATH) {
+                        char *ptr = get_libc_version(CHILD_LIBC_PATH);
+                        char *libc_version = ptr;
+                        if (!ptr) libc_version = "???";
+                        verbose(" using glibc version %s (%s)\n\n" COLOR_RESET, libc_version, CHILD_LIBC_PATH);
+                        if (ptr) {
+                            free(ptr);
+                            ptr = 0;
+                        }
+                    }
+                } else {
+                    verbose(COLOR_RESET_BOLD "Statically-linked");
+                    if (is_stripped) verbose(", stripped");
+                    verbose(" binary\n\n" COLOR_RESET);
+                }
             }
 
             ptrace(PTRACE_CONT, child, 0L, 0L);
