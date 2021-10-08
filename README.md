@@ -30,10 +30,15 @@ $ ./heaptrace ./my-binary
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: ./heaptrace [-v] [-b/--break-at <oid>] [-o/--output <filename>] <binary> [args...]
+Usage: ./heaptrace [-v] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <binary> [args...]
 
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
                             stderr (default).
+
+-s <defs>, --symbols=<defs> Override the values heaptrace detects for the 
+                            malloc/free/realloc/calloc symbols. If the binary 
+                            is stripped, this argument is required to use 
+                            heaptrace. See the wiki for more info.
 
 -b <oid>, --break-at=<oid>  Send SIGSTOP to the process at heap operation 
                             specified in `oid` and attach the GNU debugger 
@@ -51,4 +56,7 @@ For example, if you wanted to automatically attach gdb at operation #3, you woul
 ```
 
 ![screenshot-break.png](screenshot-break.png)
+
+
+See the wiki for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries: https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary
 
