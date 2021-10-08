@@ -10,15 +10,15 @@ heaptrace is a `ptrace`-based tool similar to ltrace for tracking glibc heap ope
 * Detects some forms of heap corruption, double free vulnerabilities, and memory leakage issues.
 * Allows users to set "breakpoints" at any heap operation number (`oid`). When heaptrace reaches the requested `oid` number, it immediately detaches itself from the tracee (the target binary) and attaches the GNU debugger (gdb). This allows users to easily debug the heap interactively at any point.
 
-## Other Features
+### Other Features
 
 * Supports all 64-bit dynamically-linked (glibc) or statically-linked ELF64 binaries. Even if PIE is enabled or the binary is compiled without a PLT.
 * Automatically resolves `malloc`/`free`/`realloc` symbols in libc and the binary, and soon will support manually inputting addresses for when ELF binaries are stripped.
 * Disables ASLR so that heap pointers are the same across multiple deterministic executions.
 
-## Installation
+# Installation
 
-### Arch User Repository (PKGBUILD)
+## Arch User Repository (PKGBUILD)
 
 Use your preferred AUR helper to install the [`heaptrace-git`](https://aur.archlinux.org/packages/heaptrace-git/) package.
 
@@ -26,7 +26,7 @@ Use your preferred AUR helper to install the [`heaptrace-git`](https://aur.archl
 $ trizen -S heaptrace-git
 ```
 
-### Manual
+## Manual
 
 ```sh
 $ git clone https://github.com/Arinerron/heaptrace && cd heaptrace
@@ -35,7 +35,7 @@ $ ./compile.sh
 $ ./heaptrace ./my-binary
 ```
 
-## Usage
+# Usage
 
 You can specify arguments to heaptrace before specifying the binary name:
 
