@@ -1,8 +1,10 @@
 TARGET = heaptrace
 PREFIX = /usr
 CC = gcc
-CFLAGS = -g -Wall
+#CFLAGS = -g -Wall
+CCFLAGS = -O3 -fpie
 CFLAGS = -O3 -fpie
+
 
 .PHONY: default all clean
 
@@ -13,12 +15,12 @@ OBJECTS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 HEADERS = $(wildcard inc/*.h)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@ -Iinc/
+	$(CC) $(CCFLAGS) -c $< -o $@ -Iinc/
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) -Wall $(LIBS) -o $@
 
 clean:
 	-rm -f src/*.o
@@ -60,7 +62,7 @@ deb:
 	rm -rf $(TMPINSTALLDIR)
 	rm -f $(PKG_DEB)
 	make clean
-	make CFLAGS="$(CFLAGS) -static"
+	make CFLAGS="$(CFLAGS) -static" CCFLAGS="$(CCFLAGS) -static"
 	chmod -R g-w *	
 	make install DESTDIR=$(TMPINSTALLDIR)
 	fpm -t deb -p $(PKG_DEB) $(FPM_OPTS) \
@@ -71,7 +73,7 @@ rpm:
 	rm -rf $(TMPINSTALLDIR)
 	rm -f $(PKG_RPM)
 	make clean
-	make CFLAGS="$(CFLAGS) -static"
+	make CFLAGS="$(CFLAGS) -static" CCFLAGS="$(CCFLAGS) -static"
 	chmod -R g-w *	
 	make install DESTDIR=$(TMPINSTALLDIR)
 	fpm -t rpm -p $(PKG_RPM) $(FPM_OPTS) \
