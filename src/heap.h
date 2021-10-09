@@ -26,6 +26,7 @@
 
 //static uint64_t MALLOC_COUNT = 0, FREE_COUNT = 0, REALLOC_COUNT = 0;
 extern uint64_t MALLOC_COUNT;
+extern uint64_t CALLOC_COUNT;
 extern uint64_t FREE_COUNT;
 extern uint64_t REALLOC_COUNT;
 

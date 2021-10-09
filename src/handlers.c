@@ -9,6 +9,41 @@ static uint64_t oid;
 static Chunk *orig_chunk;
 
 
+void pre_calloc(uint64_t nmemb, uint64_t isize) {
+    size = (size_t)isize * (size_t)nmemb;
+    
+    if (caused_by_heapalloc) return;
+
+    CALLOC_COUNT++;
+    oid = get_oid();
+
+    log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", oid, (size_t)nmemb, (size_t)isize);
+    check_oid(oid, 1); // see if it's time to pause
+}
+
+
+void post_calloc(uint64_t ptr) {
+    if (caused_by_heapalloc) return;
+
+    log_heap("=  " PTR "\n", PTR_ARG(ptr));
+
+    // store meta info
+    Chunk *chunk = alloc_chunk(ptr);
+
+    if (chunk->state == STATE_MALLOC) {
+        warn_heap("calloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
+        warn_heap2("first calloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
+    }
+
+    chunk->state = STATE_MALLOC;
+    chunk->ptr = ptr;
+    chunk->size = size;
+    chunk->ops[STATE_MALLOC] = oid;
+    chunk->ops[STATE_FREE] = 0;
+    chunk->ops[STATE_REALLOC] = 0;
+}
+
+
 void pre_malloc(uint64_t isize) {
     size = (size_t)isize;
     

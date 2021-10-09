@@ -4,6 +4,7 @@
 #include "debugger.h"
 
 uint64_t MALLOC_COUNT = 0;
+uint64_t CALLOC_COUNT = 0;
 uint64_t FREE_COUNT = 0;
 uint64_t REALLOC_COUNT = 0;
 
@@ -88,6 +89,7 @@ void show_stats() {
     if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
     log(COLOR_LOG "Statistics:\n");
     log("... total mallocs: " CNT "\n", MALLOC_COUNT);
+    log("... total callocs: " CNT "\n", CALLOC_COUNT);
     log("... total frees: " CNT "\n", FREE_COUNT);
     log("... total reallocs: " CNT "\n" COLOR_RESET, REALLOC_COUNT);
 
