@@ -10,10 +10,10 @@ default: $(TARGET)
 all: default
 
 OBJECTS = $(patsubst %.c, %.o, $(wildcard src/*.c))
-HEADERS = $(wildcard include/*.h)
+HEADERS = $(wildcard inc/*.h)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@ -Iinclude/
+	$(CC) $(CFLAGS) -c $< -o $@ -Iinc/
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
