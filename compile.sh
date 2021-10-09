@@ -11,4 +11,5 @@ gcc -static \
     debugger.c \
     heap.c \
     options.c \
-    handlers.c
+    handlers.c \
+    chunk.c
