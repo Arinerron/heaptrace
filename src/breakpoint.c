@@ -8,7 +8,7 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
     if (!vaddr) return;
 
     if (bp->pre_handler_nargs >= 4) {
-        warn("warning: only up to 3 args are supported in breakpoints\n");
+        warn("only up to 3 args are supported in breakpoints\n");
     }
 
     uint64_t orig_data = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, vaddr, 0L);
@@ -22,18 +22,16 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
         if (!breakpoints[i]) {
             breakpoints[i] = bp;
             errno = 0;
-            //printf("%x -> %x -> %x\n", orig_data, (orig_data & ~((uint64_t)0xff)), (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             ptrace(PTRACE_POKEDATA, pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
                 warn("heaptrace failed to install \"%s\" breakpoint at %p in process %d: %s (%d)\n", bp->name, vaddr, pid, strerror(errno), errno);
-                //printf("  ... poke errno: %x (%s)\n", errno, strerror(errno));
             }
-            //printf("  ... ptrace peeked 0x%x now\n", ptrace(PTRACE_PEEKDATA, pid, vaddr, 0L));
             return;
         }
     }
 
-    warn("warning: no more breakpoints available\n");
+    warn("no more breakpoints available. Please report this.\n");
+    abort();
 }
 
 

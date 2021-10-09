@@ -46,6 +46,10 @@ static Chunk *_find_chunk(Chunk *root, uint64_t ptr, Chunk *set_chunk) {
 
 
 Chunk *alloc_chunk(uint64_t ptr) {
+    Chunk *old_chunk = find_chunk(ptr);
+    if (old_chunk) return old_chunk;
+
+    // couldn't find it, create new one
     Chunk *new_chunk = _create_chunk();
     new_chunk->ptr = ptr;
 
@@ -59,6 +63,7 @@ Chunk *alloc_chunk(uint64_t ptr) {
 
 
 Chunk *find_chunk(uint64_t ptr) {
+    if (!ptr) return 0;
     if (!bst_root) return 0;
     return _find_chunk(bst_root, ptr, 0);
 }

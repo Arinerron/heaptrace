@@ -150,7 +150,7 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
         log_heap(SZ ")\t", SZ_ARG(isize));
     } else {
         // could not find #oid, so just use addr
-        log_heap(SYM ", ", PTR_ARG(ptr));
+        log_heap(PTR ", ", PTR_ARG(ptr));
         if (_type == 2) log_heap(SZ ", ", SZ_ARG(nmemb));
         log_heap(SZ ")\t", SZ_ARG(isize));
     }

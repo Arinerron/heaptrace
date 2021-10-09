@@ -17,8 +17,28 @@
 #include "options.h"
 #include "debugger.h"
 
+
+// https://stackoverflow.com/a/2436368
+void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
+    log("\n");
+    fatal("heaptrace segfaulted. Please re-run with --debug and report this.\n");
+    exit(1);
+}
+
+void catch_segfault() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+}
+
+
 int main(int argc, char *argv[]) {
     output_fd = stderr;
+
+    catch_segfault();
 
     char *chargv[argc + 1];
     int start_at = parse_args(argc, argv);

@@ -14,6 +14,7 @@
 
 int CHILD_PID = 0;
 char *CHILD_LIBC_PATH = 0;
+static int in_breakpoint = 0;
 
 void _check_breakpoints(int pid) {
     struct user_regs_struct regs;
@@ -34,7 +35,7 @@ void _check_breakpoints(int pid) {
                 regs.rip = reg_rip; // NOTE: this is actually $rip-1
                 ptrace(PTRACE_SETREGS, pid, 0L, &regs);
                 
-                if (!bp->_is_inside && bp->pre_handler) {
+                if (!in_breakpoint && !bp->_is_inside && bp->pre_handler) {
                     int nargs = bp->pre_handler_nargs;
                     if (nargs == 0) {
                         ((void(*)(void))bp->pre_handler)();
@@ -45,7 +46,8 @@ void _check_breakpoints(int pid) {
                     } else if (nargs == 3) {
                         ((void(*)(uint64_t, uint64_t, uint64_t))bp->pre_handler)(regs.rdi, regs.rsi, regs.rdx);
                     } else {
-                        warn("nargs is only supported up to 3 args; ignoring bp pre_handler\n");
+                        warn("nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!\n");
+                        abort();
                     }
                 }
                 
@@ -55,18 +57,24 @@ void _check_breakpoints(int pid) {
 
                 if (!bp->_is_inside) {
                     if (!bp->_bp) { // this is a regular breakpoint
-                        bp->_is_inside = 1;
+                        if (!in_breakpoint) {
+                            in_breakpoint = 1;
+                            bp->_is_inside = 1;
 
-                        if (bp->post_handler) {
-                            // install return value catcher breakpoint
-                            uint64_t val_at_reg_rsp = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, regs.rsp, 0L);
-                            Breakpoint *bp2 = (Breakpoint *)malloc(sizeof(struct Breakpoint));
-                            bp2->name = "_tmp";
-                            bp2->addr = val_at_reg_rsp;
-                            bp2->pre_handler = 0;
-                            bp2->post_handler = 0;
-                            _add_breakpoint(pid, bp2);
-                            bp2->_bp = bp;
+                            if (bp->post_handler) {
+                                // install return value catcher breakpoint
+                                uint64_t val_at_reg_rsp = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, regs.rsp, 0L);
+                                Breakpoint *bp2 = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
+                                bp2->name = "_tmp";
+                                bp2->addr = val_at_reg_rsp;
+                                bp2->pre_handler = 0;
+                                bp2->post_handler = 0;
+                                _add_breakpoint(pid, bp2);
+                                bp2->_bp = bp;
+                            } else {
+                                // we don't need a return catcher, so no way to track being inside func
+                                in_breakpoint = 0;
+                            }
                         }
 
                         // reinstall original breakpoint
@@ -83,6 +91,7 @@ void _check_breakpoints(int pid) {
                             // we never installed a return value catcher breakpoint!
                             bp->_is_inside = 0;
                         }
+                        in_breakpoint = 0;
                     }
                 } else {
                     // reinstall original breakpoint
@@ -209,7 +218,7 @@ uint64_t get_libc_base(int pid, char **libc_path_out) {
 
             //printf("current filename: \"%s\" (v.s. \"%s\")\n", cur_fname, fname);
             //if (strcmp(fname, cur_fname) == 0) {
-            if (strstr(cur_fname, "libc")) { // quite a hack
+            if (strstr(cur_fname, "libc-") || strstr(cur_fname, "libc.so")) { // quite a hack
                 // XXX: technically, the first entry is not necessarily the base. But ALMOST ALWAYS is. You'd need a very specific configuration to break this.
                 binary_base = cur_binary_base;
                 *libc_path_out = strdup(cur_fname);
@@ -340,41 +349,41 @@ void _pre_entry() {
 static int should_map_syms = 0;
 
 void start_debugger(char *chargv[]) {
-    SymbolEntry *se_malloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_malloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
     se_malloc->name = "malloc";
-    Breakpoint *bp_malloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    Breakpoint *bp_malloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_malloc->name = "malloc";
     bp_malloc->pre_handler = pre_malloc;
     bp_malloc->pre_handler_nargs = 1;
     bp_malloc->post_handler = post_malloc;
 
-    SymbolEntry *se_calloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_calloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
     se_calloc->name = "calloc";
-    Breakpoint *bp_calloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    Breakpoint *bp_calloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_calloc->name = "calloc";
     bp_calloc->pre_handler = pre_calloc;
     bp_calloc->pre_handler_nargs = 2;
     bp_calloc->post_handler = post_calloc;
 
-    SymbolEntry *se_free = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_free = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
     se_free->name = "free";
-    Breakpoint *bp_free = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    Breakpoint *bp_free = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_free->name = "free";
     bp_free->pre_handler = pre_free;
     bp_free->pre_handler_nargs = 1;
     bp_free->post_handler = post_free;
 
-    SymbolEntry *se_realloc = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_realloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
     se_realloc->name = "realloc";
-    Breakpoint *bp_realloc = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    Breakpoint *bp_realloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_realloc->name = "realloc";
     bp_realloc->pre_handler = pre_realloc;
     bp_realloc->pre_handler_nargs = 2;
     bp_realloc->post_handler = post_realloc;
 
-    SymbolEntry *se_reallocarray = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    SymbolEntry *se_reallocarray = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
     se_reallocarray->name = "reallocarray";
-    Breakpoint *bp_reallocarray = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    Breakpoint *bp_reallocarray = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_reallocarray->name = "reallocarray";
     bp_reallocarray->pre_handler = pre_reallocarray;
     bp_reallocarray->pre_handler_nargs = 3;
