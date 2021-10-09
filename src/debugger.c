@@ -427,12 +427,7 @@ void start_debugger(char *chargv[]) {
         int first_signal = 1; // XXX: this is confusing. refactor later.
         CHILD_PID = child;
 
-        /*wait(NULL);
-        ptrace(PTRACE_CONT, child, 0L, 0L);*/
-        //printf("Parent process\n");
         while(waitpid(child, &status, 0)) {
-            //debug("... paused process. Signal: %p\n", status);
-
             struct user_regs_struct regs;
             ptrace(PTRACE_GETREGS, child, 0, &regs);
 
@@ -456,15 +451,12 @@ void start_debugger(char *chargv[]) {
 
             if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV) {
                 end_debugger(child, status);
-            } else if (status == 0x57f) { // status SIGTRAP
-                // nothing
-            } else {
+            } else if (status == 0x57f) { /* status SIGTRAP */ } else {
                 debug("warning: hit unknown status code %d\n", status);
             }
 
             _check_breakpoints(child);
             if (should_map_syms) {
-                //debug("Instructed to map symbols (should_map_syms == 1)\n");
                 should_map_syms = 0;
 
                 uint64_t bin_base = 0;
