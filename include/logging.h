@@ -51,11 +51,11 @@ extern FILE *output_fd;
 #define PTR_ARG(ptr) ((long long unsigned int)(ptr))
 
 #define log_heap(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); }
-#define fatal_heap(msg, ...) log(COLOR_ERROR_BOLD, "heaptrace error: " COLOR_ERROR msg COLOR_RESET "\n", ##__VA_ARGS__)
+#define fatal_heap(msg, ...) log(COLOR_ERROR_BOLD "heaptrace error: " COLOR_ERROR msg COLOR_RESET "\n", ##__VA_ARGS__)
 //#define warn2(msg) log("%sheaptrace warning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR, (msg), COLOR_RESET) 
 #define warn_heap(msg, ...) log(COLOR_ERROR "    |-- warning: " COLOR_ERROR_BOLD msg COLOR_RESET "\n", ##__VA_ARGS__)
 #define warn_heap2(msg, ...) log(COLOR_ERROR "    |   * " msg "\n" COLOR_RESET,  ##__VA_ARGS__)
 
-#define ASSERT(q, msg, ...) if (!(q)) { fatal_heap(msg, #__VA_ARGS__); abort(); }
+#define ASSERT(q, msg, ...) if (!(q)) { fatal_heap(msg, ##__VA_ARGS__); abort(); }
 
 void describe_symbol(void *ptr);
