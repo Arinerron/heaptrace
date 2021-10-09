@@ -31,9 +31,10 @@ $ trizen -S heaptrace-git
 
 ```sh
 $ git clone https://github.com/Arinerron/heaptrace.git && cd heaptrace
-$ ./compile.sh
+$ make
+$ sudo make install
 ...
-$ ./heaptrace ./my-binary
+$ heaptrace ./target
 ```
 
 # Usage
@@ -41,7 +42,7 @@ $ ./heaptrace ./my-binary
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: ./heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
 
 -e <environ>, --environment=<environ>
                             Sets a single environmental variable. Useful for 
@@ -70,7 +71,7 @@ Usage: ./heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-
 For example, if you wanted to automatically attach gdb at operation #3, you would execute:
 
 ```
-./heaptrace --break-at=3 ./my-binary
+heaptrace --break-at=3 ./my-binary
 ```
 
 ![screenshot-break.png](screenshot-break.png)
