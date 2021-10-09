@@ -7,6 +7,7 @@ uint64_t MALLOC_COUNT = 0;
 uint64_t CALLOC_COUNT = 0;
 uint64_t FREE_COUNT = 0;
 uint64_t REALLOC_COUNT = 0;
+uint64_t REALLOCARRAY_COUNT = 0;
 
 uint64_t break_ats[MAX_BREAK_ATS];
 
@@ -59,7 +60,7 @@ void check_oid(uint64_t oid, int prepend_newline) {
 
 // returns the current operation ID
 uint64_t get_oid() {
-    uint64_t oid = MALLOC_COUNT + FREE_COUNT + REALLOC_COUNT;
+    uint64_t oid = MALLOC_COUNT + CALLOC_COUNT + FREE_COUNT + REALLOC_COUNT + REALLOCARRAY_COUNT;
     ASSERT(oid < (uint64_t)0xFFFFFFFFFFFFFFF0LLU, "ran out of oids"); // avoid overflows
     return oid;
 }
@@ -91,7 +92,8 @@ void show_stats() {
     log("... total mallocs: " CNT "\n", MALLOC_COUNT);
     log("... total callocs: " CNT "\n", CALLOC_COUNT);
     log("... total frees: " CNT "\n", FREE_COUNT);
-    log("... total reallocs: " CNT "\n" COLOR_RESET, REALLOC_COUNT);
+    log("... total reallocs: " CNT "\n", REALLOC_COUNT);
+    log("... total reallocarrays: " CNT "\n" COLOR_RESET, REALLOCARRAY_COUNT);
 
     if (unfreed_sum) {
         log(COLOR_ERROR "... total bytes lost: " SZ_ERR "\n", SZ_ARG(unfreed_sum));

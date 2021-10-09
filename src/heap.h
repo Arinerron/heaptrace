@@ -29,6 +29,7 @@ extern uint64_t MALLOC_COUNT;
 extern uint64_t CALLOC_COUNT;
 extern uint64_t FREE_COUNT;
 extern uint64_t REALLOC_COUNT;
+extern uint64_t REALLOCARRAY_COUNT;
 
 #define MAX_META_SIZE 8*8388600 // 64 MB
 #define MAX_CHUNKS MAX_META_SIZE / sizeof(Chunk)

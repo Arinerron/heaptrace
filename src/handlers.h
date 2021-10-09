@@ -21,3 +21,6 @@ void pre_free(uint64_t iptr);
 void post_free(uint64_t retval);
 void pre_realloc(uint64_t iptr, uint64_t isize);
 void post_realloc(uint64_t new_ptr);
+void pre_reallocarray(uint64_t iptr, uint64_t nmemb, uint64_t isize);
+void post_reallocarray(uint64_t new_ptr);
+

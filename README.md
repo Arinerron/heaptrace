@@ -1,6 +1,6 @@
 # About
 
-heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc heap operations (`malloc`, `calloc`, `free`, `realloc`) in ELF64 (x86-64) binaries. It is useful for debugging binaries and doing heap pwn.
+heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc heap operations (`malloc`, `calloc`, `free`, `realloc`, `reallocarray`) in ELF64 (x86-64) binaries. It is useful for debugging binaries and doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
@@ -13,7 +13,7 @@ heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc he
 ### Other Features
 
 * Supports all 64-bit dynamically-linked (glibc) or statically-linked ELF64 (x86-64) binaries. Even if PIE is enabled or the binary is compiled without a PLT.
-* Automatically resolves `malloc`/`calloc`/`free`/`realloc` symbols in libc and the binary, and supports manually inputting addresses for when ELF binaries are stripped via the [`--symbol` argument](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary).
+* Automatically resolves `malloc`/`calloc`/`free`/`realloc`/`reallocarray` symbols in libc and the binary, and supports manually inputting addresses for when ELF binaries are stripped via the [`--symbol` argument](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary).
 * Allows custom libc binaries using `--environment 'LD_PRELOAD=./libc.so.6'` argument (for example) for dynamically-linked binaries. Also allows users to set other environmental variables.
 * Disables ASLR so that heap pointers are the same across multiple deterministic executions.
 
@@ -50,9 +50,10 @@ Usage: ./heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-
                             heaptrace's runtime configuration.
 
 -s <defs>, --symbols=<defs> Override the values heaptrace detects for the 
-                            malloc/calloc/free/realloc symbols. If the binary 
-                            is stripped, this argument is required to use 
-                            heaptrace. See the wiki for more info.
+                            malloc/calloc/free/realloc/reallocarray symbols. 
+                            If the binary is stripped, this argument is 
+                            required to use heaptrace. See the wiki for more 
+                            info.
 
 -b <oid>, --break-at=<oid>  Send SIGSTOP to the process at heap operation 
                             specified in `oid` and attach the GNU debugger 

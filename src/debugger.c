@@ -372,9 +372,18 @@ void start_debugger(char *chargv[]) {
     bp_realloc->pre_handler_nargs = 2;
     bp_realloc->post_handler = post_realloc;
 
-    SymbolEntry *ses[4] = {se_malloc, se_calloc, se_free, se_realloc};
+    SymbolEntry *se_reallocarray = (SymbolEntry *)malloc(sizeof(SymbolEntry));
+    se_reallocarray->name = "reallocarray";
+    Breakpoint *bp_reallocarray = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+    bp_reallocarray->name = "reallocarray";
+    bp_reallocarray->pre_handler = pre_reallocarray;
+    bp_reallocarray->pre_handler_nargs = 3;
+    bp_reallocarray->post_handler = post_reallocarray;
+
+    SymbolEntry *ses[] = {se_malloc, se_calloc, se_free, se_realloc, se_reallocarray};
+    int sesc = 5; // TODO turn into null terminated
     char *interp_name;
-    lookup_symbols(chargv[0], ses, 4, &interp_name);
+    lookup_symbols(chargv[0], ses, sesc, &interp_name);
 
     if (interp_name) {
         //debug("Using interpreter \"%s\".\n", interp_name);
@@ -386,8 +395,8 @@ void start_debugger(char *chargv[]) {
     
     
     int show_banner = 0;
-    int is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
-    int is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED);
+    int is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC || se_reallocarray->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT || se_reallocarray->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
+    int is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED && se_reallocarray->type == SE_TYPE_UNRESOLVED);
 
     if (is_stripped && !strlen(symbol_defs_str)) {
         warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
@@ -471,16 +480,17 @@ void start_debugger(char *chargv[]) {
                 bp_calloc->addr = _calc_offset(child, se_calloc, bin_base, bin_end, libc_base);
                 bp_free->addr = _calc_offset(child, se_free, bin_base, bin_end, libc_base);
                 bp_realloc->addr = _calc_offset(child, se_realloc, bin_base, bin_end, libc_base);
+                bp_reallocarray->addr = _calc_offset(child, se_reallocarray, bin_base, bin_end, libc_base);
                 
-                Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc};
-                int bpsc = 4;
+                Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc, bp_reallocarray};
+                int bpsc = 5;
                 evaluate_symbol_defs(bps, bpsc, libc_base, bin_base);
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);
                 _add_breakpoint(child, bp_calloc);
                 _add_breakpoint(child, bp_free);
-                _add_breakpoint(child, bp_realloc);
+                _add_breakpoint(child, bp_reallocarray);
                 
                 // print the type of binary etc
                 if (is_dynamic) {

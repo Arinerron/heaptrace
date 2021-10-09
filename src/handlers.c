@@ -127,43 +127,65 @@ void post_free(uint64_t retval) {
 }
 
 
-void pre_realloc(uint64_t iptr, uint64_t isize) {
+// _type=1 means "realloc", _type=2 means "reallocarray"
+void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
+    char *_name = "realloc";
+    if (_type == 2) _name = "reallocarray";
+
     ptr = iptr;
-    size = (uint64_t)isize;
+    size = isize * nmemb;
 
     if (caused_by_heapalloc) return;
 
-    REALLOC_COUNT++;
+    if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
     uint64_t oid = get_oid();
 
     orig_chunk = find_chunk(ptr);
 
-    log_heap("... " SYM ": realloc(", oid);
+    log_heap("... " SYM ": %s(", oid, _name);
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
         // #oid symbol resolved
-        log_heap(SYM ", " SZ ")\t", orig_chunk->ops[STATE_MALLOC], SZ_ARG(size));
+        log_heap(SYM ", ", orig_chunk->ops[STATE_MALLOC]);
+        if (_type == 2) log_heap(SZ ", ", SZ_ARG(nmemb));
+        log_heap(SZ ")\t", SZ_ARG(isize));
     } else {
         // could not find #oid, so just use addr
-        log_heap(SYM ", " SZ ")\t", PTR_ARG(ptr), SZ_ARG(size));
+        log_heap(SYM ", ", PTR_ARG(ptr));
+        if (_type == 2) log_heap(SZ ", ", SZ_ARG(nmemb));
+        log_heap(SZ ")\t", SZ_ARG(isize));
     }
 
     if (orig_chunk && orig_chunk->state == STATE_FREE) {
         log_heap("\n");
-        warn_heap("attempting to realloc a previously-freed chunk");
-        warn_heap2("malloc()'d in operation " SYM, orig_chunk->ops[STATE_MALLOC]);
-        warn_heap2("free()'d in operation " SYM, orig_chunk->ops[STATE_FREE]);
+        warn_heap("attempting to %s a previously-freed chunk", _name);
+        warn_heap2("allocated in operation " SYM, orig_chunk->ops[STATE_MALLOC]);
+        warn_heap2("freed in operation " SYM, orig_chunk->ops[STATE_FREE]);
     } else if (ptr && !orig_chunk) {
         // ptr && because https://github.com/Arinerron/heaptrace/issues/9
         //   0x0 is a special value
         log_heap("\n");
-        warn_heap("attempting to realloc a chunk that was never malloc'd");
+        warn_heap("attempting to %s a chunk that was never allocated", _name);
     }
 
     check_oid(oid, 1); // see if it's time to pause
 }
 
 
-void post_realloc(uint64_t new_ptr) {
+void pre_realloc(uint64_t iptr, uint64_t isize) {
+    _pre_realloc(1, iptr, 1, isize);
+}
+
+
+void pre_reallocarray(uint64_t iptr, uint64_t nmemb, uint64_t isize) {
+    _pre_realloc(2, iptr, nmemb, isize);
+}
+
+
+// _type=1 means "realloc", _type=2 means "reallocarray"
+static void _post_realloc(int _type, uint64_t new_ptr) {
+    char *_name = "realloc";
+    if (_type == 2) _name = "reallocarray";
+
     log_heap("=  " PTR, PTR_ARG(new_ptr));
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
         log("\t%s(" SYM_IT "=" PTR_IT ")", COLOR_LOG_ITALIC, orig_chunk->ops[STATE_MALLOC], PTR_ARG(ptr));
@@ -176,6 +198,7 @@ void post_realloc(uint64_t new_ptr) {
     if (ptr == new_ptr) {
         // the chunk shrank
         ASSERT(orig_chunk == new_chunk, "the new/old chunk are not equiv (new=" PTR ", old=" PTR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
+        new_chunk->ops[STATE_MALLOC] = oid; // NOTE: we treat it as a malloc for now
         if (orig_chunk) {
             orig_chunk->size = size;
         } // the else condition is unnecessary because there's a check above for !orig_chunk
@@ -184,18 +207,19 @@ void post_realloc(uint64_t new_ptr) {
             // the chunk moved
             new_chunk = alloc_chunk(new_ptr);
             if (new_chunk->state == STATE_MALLOC) {
-                warn_heap("realloc returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption");
-                warn_heap2("first malloc()'d in operation " SYM, new_chunk->ops[STATE_MALLOC]);
+                warn_heap("%s returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption", _name);
+                warn_heap2("first allocated in operation " SYM, new_chunk->ops[STATE_MALLOC]);
             }
 
             new_chunk->state = STATE_MALLOC;
             new_chunk->ptr = new_ptr;
             new_chunk->size = size;
-            new_chunk->ops[STATE_MALLOC] = (ptr ? orig_chunk->ops[STATE_MALLOC] : oid); // realloc can act as malloc() when ptr is 0
+            new_chunk->ops[STATE_MALLOC] = oid; // NOTE: I changed my mind. Treat it as a malloc.
+            //new_chunk->ops[STATE_MALLOC] = (ptr ? orig_chunk->ops[STATE_MALLOC] : oid); // realloc can act as malloc() when ptr is 0
             new_chunk->ops[STATE_FREE] = 0;
             new_chunk->ops[STATE_REALLOC] = oid;
         } else {
-            ASSERT(!size, "realloc returned NULL even though size was not zero");
+            ASSERT(!size, "realloc/reallocarray returned NULL even though size was not zero");
         }
 
         if (ptr && orig_chunk) {
@@ -203,5 +227,13 @@ void post_realloc(uint64_t new_ptr) {
             orig_chunk->ops[STATE_FREE] = oid;
         } // no need for else if (!orig_chunk) because !orig_chunk is above
     }
+}
 
+void post_realloc(uint64_t new_ptr) {
+    _post_realloc(1, new_ptr);
+}
+
+
+void post_reallocarray(uint64_t new_ptr) {
+    _post_realloc(2, new_ptr);
 }
