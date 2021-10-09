@@ -93,9 +93,10 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         }
     }
 
-    if (interp_addr) _CHECK_BOUNDS(cbytes + interp_addr, "_interp_name: cbytes + interp_addr");
-    char *_interp_name = (interp_addr ? strdup(cbytes + interp_addr) : 0);
-    //printf("interp: %p / %s\n", interp_addr, _interp_name);
+    //if (interp_addr) _CHECK_BOUNDS(cbytes + interp_addr, "_interp_name: cbytes + interp_addr");
+    char *_iptr = cbytes + interp_addr;
+    if (!((void *)(_iptr) >= (void *)tbytes && (void *)(_iptr) < (void *)tbytes + tfile_size)) { _iptr = 0; interp_addr = 0; }; // XXX: strange bug. see ret2win bin in ~/ctf
+    char *_interp_name = (interp_addr ? strdup(_iptr) : 0);
     *interp_name = _interp_name;
 
     // find .plt, symtab, .strtab offsets
