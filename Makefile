@@ -23,6 +23,7 @@ $(TARGET): $(OBJECTS)
 clean:
 	-rm -f src/*.o
 	-rm -f $(TARGET)
+	-rm -f *.deb *.rpm
 
 # PREFIX is environment variable, but if it is not set, then set default value
 ifeq ($(PREFIX),)
@@ -58,6 +59,8 @@ TMPINSTALLDIR=/tmp/$(PKG_NAME)-fpm-install
 deb:
 	rm -rf $(TMPINSTALLDIR)
 	rm -f $(PKG_DEB)
+	make clean
+	make CFLAGS="$(CFLAGS) -static"
 	chmod -R g-w *	
 	make install DESTDIR=$(TMPINSTALLDIR)
 	fpm -t deb -p $(PKG_DEB) $(FPM_OPTS) \
@@ -67,6 +70,8 @@ deb:
 rpm:
 	rm -rf $(TMPINSTALLDIR)
 	rm -f $(PKG_RPM)
+	make clean
+	make CFLAGS="$(CFLAGS) -static"
 	chmod -R g-w *	
 	make install DESTDIR=$(TMPINSTALLDIR)
 	fpm -t rpm -p $(PKG_RPM) $(FPM_OPTS) \
