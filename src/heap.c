@@ -11,68 +11,9 @@ uint64_t break_ats[MAX_BREAK_ATS];
 
 // initialize the chunk meta if first time
 void chunk_init() {
-    if (!chunks_initialized) {
-        memset(chunk_meta, 0, MAX_CHUNKS * sizeof(Chunk));
-        chunks_initialized = 1;
-    }
+    // XXX deprecated, TODO delete this
 }
 
-
-// return the first available struct Chunk
-Chunk *alloc_chunk(uint64_t ptr) {
-    chunk_init();
-
-    Chunk *first_unused = 0;
-
-    // find first available chunk
-    for (int i = 0; i < MAX_CHUNKS; i++) {
-        if (!first_unused && chunk_meta[i].state == STATE_UNUSED) {
-            // first store the first unused chunk found
-            first_unused = &(chunk_meta[i]);
-        } else if (chunk_meta[i].ptr == ptr) {
-            // return the requested chunk
-            return &(chunk_meta[i]);
-        }
-    }
-
-    if (first_unused) {
-        memset(first_unused, 0, sizeof(Chunk));
-        return first_unused;
-    }
-
-    // no free chunk structs found!
-    fatal("out of meta chunks");
-    abort();
-}
-
-
-// return a struct Chunk containing the given addr, if any
-Chunk *find_chunk(uint64_t ptr) {
-    chunk_init();
-
-    // XXX: technically it is possible to have a chunk at 0x0
-    // but we don't want (ptr == cur_chunk.ptr) with uninitialized chunk metas
-    if (!ptr) {
-        return 0;
-    }
-
-    Chunk *next_best_chunk = 0;
-    
-    // find first available chunk
-    Chunk cur_chunk;
-    for (int i = 0; i < MAX_CHUNKS; i++) {
-        cur_chunk = chunk_meta[i];
-        // XXX: remember, malloc.c rounds size up!
-        if (ptr == cur_chunk.ptr) {
-            return &(chunk_meta[i]);
-        } else if (!next_best_chunk && ptr >= cur_chunk.ptr && ptr <= cur_chunk.ptr + CHUNK_SIZE(cur_chunk.size)) {
-            // this is to simplify chunk consolidation logic. it's not perfect but it works in most cases
-            next_best_chunk = &(chunk_meta[i]);
-        }
-    }
-
-    return next_best_chunk;
-}
 
 
 // see if it's time to pause
@@ -125,6 +66,8 @@ uint64_t get_oid() {
 
 void show_stats() {
     uint64_t unfreed_sum = 0;
+
+    /* // TODO: convert to BST code
     Chunk cur_chunk;
     int _prefix = 0; // hack for getting newlines right
     for (int i = 0; i < MAX_CHUNKS; i++) {
@@ -140,6 +83,7 @@ void show_stats() {
             unfreed_sum += CHUNK_SIZE(cur_chunk.size);
         }
     }
+    */
 
     if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
     log(COLOR_LOG "Statistics:\n");
