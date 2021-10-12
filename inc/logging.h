@@ -48,6 +48,7 @@ extern FILE *output_fd;
 #define SZ_ARG(sz) ((long unsigned int)(sz))
 #define CNT COLOR_LOG_BOLD "%lu" COLOR_LOG
 #define PTR COLOR_LOG_BOLD "0x%llx" COLOR_LOG
+#define PTR_ERR COLOR_ERROR_BOLD "0x%llx" COLOR_ERROR
 #define PTR_IT COLOR_LOG_ITALIC "0x%llx" COLOR_LOG
 #define PTR_ARG(ptr) ((long long unsigned int)(ptr))
 
@@ -58,5 +59,7 @@ extern FILE *output_fd;
 #define warn_heap2(msg, ...) log(COLOR_ERROR "    |   * " msg "\n" COLOR_RESET,  ##__VA_ARGS__)
 
 #define ASSERT(q, msg, ...) if (!(q)) { fatal_heap(msg, ##__VA_ARGS__); abort(); }
+#define ASSERT_NICE(q, msg, ...) if (!(q)) { fatal_heap(msg, ##__VA_ARGS__); }
+
 
 void describe_symbol(void *ptr);

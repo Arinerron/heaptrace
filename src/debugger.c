@@ -319,9 +319,10 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base
 
 void end_debugger(int pid, int status) {
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
+    int code = (status >> 8) & 0xffff;
 
     if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
-        log(COLOR_ERROR "Process exited abnormally (status: " COLOR_ERROR_BOLD "%d" COLOR_ERROR ")." COLOR_RESET " ", WTERMSIG(status));
+        log(COLOR_ERROR "Process exited abnormally (status: " COLOR_ERROR_BOLD "%d" COLOR_ERROR ")." COLOR_RESET " ", code);
     }
 
     if (WCOREDUMP(status)) {

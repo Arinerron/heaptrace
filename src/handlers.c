@@ -193,15 +193,21 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
     log_heap("\n");
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
-    Chunk *new_chunk = find_chunk(new_ptr);
+    Chunk *new_chunk = alloc_chunk(new_ptr);
 
     if (ptr == new_ptr) {
         // the chunk shrank
-        ASSERT(orig_chunk == new_chunk, "the new/old chunk are not equiv (new=" PTR ", old=" PTR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
-        new_chunk->ops[STATE_MALLOC] = oid; // NOTE: we treat it as a malloc for now
-        if (orig_chunk) {
-            orig_chunk->size = size;
-        } // the else condition is unnecessary because there's a check above for !orig_chunk
+        
+        if (orig_chunk != new_chunk) {
+            debug("the new/old Chunk meta are not equiv (new=" PTR_ERR ", old=" PTR_ERR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
+        }
+
+        if (new_chunk) {
+            new_chunk->ops[STATE_MALLOC] = oid; // NOTE: we treat it as a malloc for now
+            if (orig_chunk) {
+                orig_chunk->size = size;
+            } // the else condition is unnecessary because there's a check above for !orig_chunk
+        }
     } else {
         if (new_ptr) {
             // the chunk moved
