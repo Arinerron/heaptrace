@@ -1,6 +1,9 @@
 #include "symbol.h"
 #include "logging.h"
 
+
+#define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
+
 int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name) {
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
@@ -46,13 +49,6 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         return 0;
     }
 
-    /*printf("file size: %zd\n", tfile_size);
-    printf("program header offset: %zd\n", elf_hdr.e_phoff);
-    printf("program header num: %d\n", elf_hdr.e_phnum);
-    printf("section header offset: %zd\n", elf_hdr.e_shoff);
-    printf("section header num: %d\n", elf_hdr.e_shnum);
-    printf("section header string table: %d\n", elf_hdr.e_shstrndx);*/
-
     size_t string_index = elf_hdr.e_shstrndx;
     uint64_t string_offset;
     uint64_t load_addr = 0;
@@ -61,6 +57,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
     for (uint16_t i = 0; i < elf_hdr.e_phnum; i++) {
         size_t offset = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;
         Elf64_Phdr phdr;
+        _CHECK_BOUNDS(tbytes + offset, "phdr: tbytes + offset");
         memmove(&phdr, tbytes + offset, sizeof(phdr));
         //if (phdr.p_type == PT_LOAD) { // XXX: not working TODO
         if (!i) {
@@ -88,6 +85,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
     for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {
         size_t offset = elf_hdr.e_shoff + i * elf_hdr.e_shentsize;
         Elf64_Shdr shdr;
+        _CHECK_BOUNDS(tbytes + offset, "string_offset: tbytes + offset");
         memmove(&shdr, tbytes + offset, sizeof(shdr));
         if (string_index == i) {
             string_offset = shdr.sh_offset;
@@ -95,15 +93,19 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         }
     }
 
-    char *_interp_name = (interp_addr ? strdup(cbytes + interp_addr) : 0);
-    //printf("interp: %p / %s\n", interp_addr, interp_name);
+    //if (interp_addr) _CHECK_BOUNDS(cbytes + interp_addr, "_interp_name: cbytes + interp_addr");
+    char *_iptr = cbytes + interp_addr;
+    if (!((void *)(_iptr) >= (void *)tbytes && (void *)(_iptr) < (void *)tbytes + tfile_size)) { _iptr = 0; interp_addr = 0; }; // XXX: strange bug. see ret2win bin in ~/ctf
+    char *_interp_name = (interp_addr ? strdup(_iptr) : 0);
     *interp_name = _interp_name;
 
     // find .plt, symtab, .strtab offsets
     for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {
         size_t offset = elf_hdr.e_shoff + i * elf_hdr.e_shentsize;
         Elf64_Shdr shdr;
+        _CHECK_BOUNDS(tbytes + offset, "shdr: tbytes + offset");
         memmove(&shdr, tbytes + offset, sizeof(shdr));
+        _CHECK_BOUNDS(cbytes + string_offset + shdr.sh_name, "section_name: cbytes + string_offset + shdr.sh_name");
         char *section_name = cbytes + string_offset + shdr.sh_name;
         //printf("section: %s\n", section_name);
 
@@ -134,16 +136,19 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
 
     // resolve dynamic (libc) symbols
     if (rela_dyn_off && dynstr_off && dynsym_off) {
-        size_t rela_offsets[(dynsym_sz / sizeof(Elf64_Sym)) + 1];
-        for (int k = 0; k < (dynsym_sz / sizeof(Elf64_Sym)) + 1; k++) rela_offsets[k] = 0;
+        int rela_offsets_sz = (dynsym_sz / sizeof(Elf64_Sym)) + 1;
+        size_t rela_offsets[rela_offsets_sz];
+        for (int k = 0; k < rela_offsets_sz; k++) rela_offsets[k] = 0;
 
         for (size_t j = 0; j * sizeof(Elf64_Rela) < rela_dyn_sz; j++) {
             Elf64_Rela rela;
             size_t absoffset = rela_dyn_off + j * sizeof(Elf64_Rela);
+            _CHECK_BOUNDS(cbytes + absoffset, "rela: cbytes + absoffset");
             memmove(&rela, cbytes + absoffset, sizeof(rela));
             //printf("rela libc: 0x%x (%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info));
             if (ELF64_R_TYPE(rela.r_info) == R_X86_64_GLOB_DAT) {
-                int sym_i = ELF64_R_SYM(rela.r_info);
+                unsigned int sym_i = ELF64_R_SYM(rela.r_info);
+                ASSERT(sym_i < rela_offsets_sz, "rela: sym_i < rela_offsets_sz");
                 rela_offsets[sym_i] = rela.r_offset;
             }
         }
@@ -152,10 +157,12 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         for (size_t j = 0; j * sizeof(Elf64_Sym) < dynsym_sz; j++) {
             Elf64_Sym sym;
             size_t absoffset = dynsym_off + j * sizeof(Elf64_Sym);
+            _CHECK_BOUNDS(cbytes + absoffset, "rela 2: cbytes + absoffset");
             memmove(&sym, cbytes + absoffset, sizeof(sym));
             
             if (sym.st_name != 0) {
                 char *name = cbytes + dynstr_off + sym.st_name;
+                _CHECK_BOUNDS(name, "rela: name"); // XXX: technically doesn't check if null-terminated. could read into memory if name wasn't null terminated
                 size_t n = strlen(name);
                 char *pos = strstr(name, "@GLIBC_"); // XXX: slightly hacky
                 if (pos) {
@@ -179,18 +186,20 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
     // resolve dynamic (plt) symbols
     // XXX/TODO: refactor to merge with the code block above
     if (rela_plt_off && dynstr_off && dynsym_off) {
-        size_t rela_offsets[(dynsym_sz / sizeof(Elf64_Sym)) + 1];
-        for (int k = 0; k < (dynsym_sz / sizeof(Elf64_Sym)) + 1; k++) rela_offsets[k] = 0;
+        int rela_offsets_sz = (dynsym_sz / sizeof(Elf64_Sym)) + 1;
+        size_t rela_offsets[rela_offsets_sz];
+        for (int k = 0; k < rela_offsets_sz; k++) rela_offsets[k] = 0;
 
         for (size_t j = 0; j * sizeof(Elf64_Rela) < rela_plt_sz; j++) {
             Elf64_Rela rela;
             size_t absoffset = rela_plt_off + j * sizeof(Elf64_Rela);
+            _CHECK_BOUNDS(cbytes + absoffset, ".plt: cbytes + absoffset");
             memmove(&rela, cbytes + absoffset, sizeof(rela));
             //printf("rela plt: 0x%x (sym=%d, type=%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info), ELF64_R_TYPE(rela.r_info));
             if (ELF64_R_TYPE(rela.r_info) == R_X86_64_JUMP_SLOT) {
                 int sym_i = ELF64_R_SYM(rela.r_info);
+                ASSERT(sym_i < rela_offsets_sz, ".plt: sym_i < rela_offsets_sz");
                 rela_offsets[sym_i] = rela.r_offset;
-                //printf("@6: %p\n", rela_offsets[6]);
             }
         }
 
@@ -199,10 +208,12 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         for (size_t j = 0; j * sizeof(Elf64_Sym) < dynsym_sz; j++) {
             Elf64_Sym sym;
             size_t absoffset = dynsym_off + j * sizeof(Elf64_Sym);
+            _CHECK_BOUNDS(cbytes + absoffset, ".plt 2: cbytes + absoffset");
             memmove(&sym, cbytes + absoffset, sizeof(sym));
             
             if (sym.st_name != 0) {
                 char *name = cbytes + dynstr_off + sym.st_name;
+                _CHECK_BOUNDS(name, ".plt: name");
                 size_t n = strlen(name);
                 char *pos = strstr(name, "@GLIBC_"); // XXX: slightly hacky
                 if (pos) {
@@ -228,9 +239,11 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
         for (size_t j = 0; j * sizeof(Elf64_Sym) < symtab_sz; j++) {
             Elf64_Sym sym;
             size_t absoffset = symtab_off + j * sizeof(Elf64_Sym);
+            _CHECK_BOUNDS(cbytes + absoffset, "static: cbytes + absoffset");
             memmove(&sym, cbytes + absoffset, sizeof(sym));
             if (sym.st_name != 0) {
                 char *name = cbytes + strtab_off + sym.st_name;
+                _CHECK_BOUNDS(name, "static: name");
                 size_t n = strlen(name);
                 for (int i = 0; i < sesc; i++) {
                     SymbolEntry *cse = ses[i];

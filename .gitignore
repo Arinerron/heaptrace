@@ -1,5 +1,7 @@
 main
 heaptrace
+*.deb
+*.rpm
 
 # test/*
 # !test/*.c

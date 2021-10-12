@@ -1,11 +1,23 @@
 #include "chunk.h"
 
 Chunk *bst_root;
+static void *_chunk_arr = 0;
+static size_t _chunk_arr_i = 0;
+static size_t _chunk_arr_sz = 1000;
 
 
 static Chunk *_create_chunk() {
-    Chunk *chunk = (Chunk *)malloc(sizeof(Chunk));
-    memset(chunk, 0, sizeof(Chunk));
+    // alloc a new block
+    if (_chunk_arr_i == _chunk_arr_sz || !_chunk_arr) {
+        _chunk_arr_i = 0;
+        _chunk_arr = calloc(_chunk_arr_sz, sizeof(Chunk));
+        if (!_chunk_arr) {
+            fatal("_create_chunk: calloc out of memory");
+        }
+    }
+
+    Chunk *chunk = (Chunk *)(_chunk_arr + (_chunk_arr_i * sizeof(Chunk)));
+    _chunk_arr_i++;
     return chunk;
 }
 

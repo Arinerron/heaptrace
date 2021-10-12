@@ -4,20 +4,14 @@ heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc he
 
 ![screenshot.png](screenshot.png)
 
-## Main Features
-
 * Prints out heap operations using symbols instead of pointers. This allows users to understand what is going on on the heap without having to compare pointer values at each operation.
 * Detects some forms of heap corruption, double free vulnerabilities, and memory leakage issues.
 * Allows users to set "breakpoints" at any heap operation number (`oid`). When heaptrace reaches the requested `oid` number, it immediately detaches itself from the tracee (the target binary) and attaches the GNU debugger (gdb). This allows users to easily debug the heap interactively at any point.
 
-### Other Features
-
-* Supports all 64-bit dynamically-linked (glibc) or statically-linked ELF64 (x86-64) binaries. Even if PIE is enabled or the binary is compiled without a PLT.
-* Automatically resolves `malloc`/`calloc`/`free`/`realloc`/`reallocarray` symbols in libc and the binary, and supports manually inputting addresses for when ELF binaries are stripped via the [`--symbol` argument](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary).
-* Allows custom libc binaries using `--environment 'LD_PRELOAD=./libc.so.6'` argument (for example) for dynamically-linked binaries. Also allows users to set other environmental variables.
-* Disables ASLR so that heap pointers are the same across multiple deterministic executions.
-
 # Installation
+## Official Releases
+
+See the .deb and .rpm release files, and a pre-compiled binary at the [Releases page](https://github.com/Arinerron/heaptrace/releases/).
 
 ## Arch User Repository (PKGBUILD)
 
@@ -27,7 +21,7 @@ Use your preferred AUR helper to install the [`heaptrace-git`](https://aur.archl
 $ trizen -S heaptrace-git
 ```
 
-## Manual
+## Compile from Source
 
 ```sh
 $ git clone https://github.com/Arinerron/heaptrace.git && cd heaptrace
@@ -77,4 +71,8 @@ heaptrace --break-at=3 ./my-binary
 ![screenshot-break.png](screenshot-break.png)
 
 See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries.
+
+# Support
+
+I'm happy to help if you experience a bug or have any feedback. Please see the [GitHub Issues](https://github.com/Arinerron/heaptrace/issues) page.
 
