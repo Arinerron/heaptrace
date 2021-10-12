@@ -11,6 +11,7 @@
 #include "logging.h"
 #include "breakpoint.h"
 #include "options.h"
+#include "funcid.h"
 
 int CHILD_PID = 0;
 char *CHILD_LIBC_PATH = 0;
@@ -286,6 +287,27 @@ uint64_t get_auxv_entry(int pid) {
 }
 
 
+void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base, uint64_t bin_base) {
+    debug("Attempting to identify function signatures in %s (stripped)...\n", fname);
+    FILE *f = fopen(fname, "r");
+    FunctionSignature *sigs = find_function_signatures(f);
+    for (int i = 0; i < 5; i++) {
+        FunctionSignature sig = sigs[i];
+        if (sig.offset) {
+            uint64_t ptr = bin_base + sig.offset;
+            debug("Identified function \"%s\" at " PTR " (bin_base+offset=" PTR "+" PTR ").\n", ptr, bin_base, sig.offset);
+            for (int j = 0; j < bpsc; j++) {
+                Breakpoint *bp = bps[j];
+                if (!strcmp(sig.name, bp->name)) {
+                    bp->addr = ptr;
+                }
+            }
+        }
+    }
+    fclose(f);
+}
+
+
 void end_debugger(int pid, int status) {
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
 
@@ -493,6 +515,7 @@ void start_debugger(char *chargv[]) {
                 
                 Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc, bp_reallocarray};
                 int bpsc = 5;
+                if (is_stripped) evaluate_funcid(bps, bpsc, chargv[0], libc_base, bin_base);
                 evaluate_symbol_defs(bps, bpsc, libc_base, bin_base);
 
                 // install breakpoints
