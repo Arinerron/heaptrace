@@ -7,6 +7,7 @@ heaptrace is a `ptrace`-based debugger similar to `ltrace` for tracking glibc he
 * Prints out heap operations using symbols instead of pointers. This allows users to understand what is going on on the heap without having to compare pointer values at each operation.
 * Detects some forms of heap corruption, double free vulnerabilities, and memory leakage issues.
 * Allows users to set "breakpoints" at any heap operation number (`oid`). When heaptrace reaches the requested `oid` number, it immediately detaches itself from the tracee (the target binary) and attaches the GNU debugger (gdb). This allows users to easily debug the heap interactively at any point.
+* Automatically resolves symbols if available. If the binary is stripped, it attempts to automatically identify function offsets based on function signatures.
 
 # Installation
 ## Official Releases
