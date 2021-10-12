@@ -72,7 +72,6 @@ FunctionSignature *find_function_signatures(FILE *f) {
         warn("mmap() failed in lookup_symbols");
         return 0;
     }
-    fclose(f);
 
     FunctionSignature *sigs = (FunctionSignature *)calloc(5, sizeof(FunctionSignature));
     sigs[0].name = "malloc";
@@ -84,21 +83,24 @@ FunctionSignature *find_function_signatures(FILE *f) {
     const int fss_c[5] = {FUNCSIGS_MALLOC_COUNT, FUNCSIGS_FREE_COUNT, FUNCSIGS_CALLOC_COUNT, FUNCSIGS_REALLOC_COUNT, FUNCSIGS_REALLOCARRAY_COUNT};
     
     for (int j = 0; j < 5; j++) {
-        FunctionSignature sig = sigs[j];
+        FunctionSignature *sig = &sigs[j];
 
         const funcsig *fss = fss_r[j];
         int fssc = fss_c[j];
         int i = 0;
         while (1) {
             funcsig fs = fss[i++];
-            sig.offset = search_fs(buf, filesize, fs);
-            if (sig.offset) {
+            sig->offset = search_fs(buf, filesize, fs);
+            if (sig->offset) {
                 break;
             }
             if (i == fssc) break;
         }
 
-        printf("found %s: %p\n", sig.name, sig.offset);
+        //printf("(1) -> %s (%p) - %x (%p)\n", sig->name, sig, sig->offset, sig->offset);
+        if (sig->offset) {
+            debug("funcid identified sym \"%s\" at offset %p (i=%d)\n", sig->name, sig->offset, i);
+        }
     }
 
     return sigs;
@@ -107,5 +109,6 @@ FunctionSignature *find_function_signatures(FILE *f) {
 /*int main(int argc, char *argv[]) {
     FILE *f = fopen(argv[1], "r");
     find_function_signatures(f);
+    fclose(f);
     return 0;
 }*/

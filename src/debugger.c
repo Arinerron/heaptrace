@@ -287,23 +287,26 @@ uint64_t get_auxv_entry(int pid) {
 }
 
 
+// attempts to identify functions in stripped ELFs (bin_base only, not libc)
 void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base, uint64_t bin_base) {
     debug("Attempting to identify function signatures in %s (stripped)...\n", fname);
     FILE *f = fopen(fname, "r");
     FunctionSignature *sigs = find_function_signatures(f);
     for (int i = 0; i < 5; i++) {
-        FunctionSignature sig = sigs[i];
-        if (sig.offset) {
-            uint64_t ptr = bin_base + sig.offset;
-            debug("Identified function \"%s\" at " PTR " (bin_base+offset=" PTR "+" PTR ").\n", ptr, bin_base, sig.offset);
+        FunctionSignature *sig = &sigs[i];
+        //printf("(2) -> %s (%p) - %x (%p)\n", sig->name, sig, sig->offset, sig->offset);
+        if (sig->offset) {
+            uint64_t ptr = bin_base + sig->offset;
+            verbose(COLOR_LOG "* found \"%s\" function signature at " PTR " (bin_base+offset=" PTR "+" PTR ").\n" COLOR_RESET, sig->name, PTR_ARG(ptr), PTR_ARG(bin_base), PTR_ARG(sig->offset));
             for (int j = 0; j < bpsc; j++) {
                 Breakpoint *bp = bps[j];
-                if (!strcmp(sig.name, bp->name)) {
+                if (!strcmp(sig->name, bp->name)) {
                     bp->addr = ptr;
                 }
             }
         }
     }
+    if (sigs) free(sigs);
     fclose(f);
 }
 
@@ -311,7 +314,7 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base
 void end_debugger(int pid, int status) {
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
 
-    if ((status == STATUS_SIGSEGV) || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
+    if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
         log(COLOR_ERROR "Process exited abnormally (status: " COLOR_ERROR_BOLD "%d" COLOR_ERROR ")." COLOR_RESET " ", WTERMSIG(status));
     }
 
@@ -491,7 +494,7 @@ void start_debugger(char *chargv[]) {
                 _add_breakpoint(child, bp_entry);
             }
 
-            if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV) {
+            if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV || status == 0x67f) {
                 end_debugger(child, status);
             } else if (status == 0x57f) { /* status SIGTRAP */ } else {
                 debug("warning: hit unknown status code %d\n", status);
@@ -500,6 +503,28 @@ void start_debugger(char *chargv[]) {
             _check_breakpoints(child);
             if (should_map_syms) {
                 should_map_syms = 0;
+                
+                // print the type of binary etc
+                if (is_dynamic) {
+                    verbose(COLOR_RESET_BOLD "Dynamically-linked");
+                    if (is_stripped) verbose(", stripped");
+                    verbose(" binary")
+
+                    if (CHILD_LIBC_PATH) {
+                        char *ptr = get_libc_version(CHILD_LIBC_PATH);
+                        char *libc_version = ptr;
+                        if (!ptr) libc_version = "???";
+                        verbose(" using glibc version %s (%s)\n" COLOR_RESET, libc_version, CHILD_LIBC_PATH);
+                        if (ptr) {
+                            free(ptr);
+                            ptr = 0;
+                        }
+                    } else { verbose("\n"); }
+                } else {
+                    verbose(COLOR_RESET_BOLD "Statically-linked");
+                    if (is_stripped) verbose(", stripped");
+                    verbose(" binary\n" COLOR_RESET);
+                }
 
                 uint64_t bin_base = 0;
                 uint64_t bin_end = 0;
@@ -517,34 +542,13 @@ void start_debugger(char *chargv[]) {
                 int bpsc = 5;
                 if (is_stripped) evaluate_funcid(bps, bpsc, chargv[0], libc_base, bin_base);
                 evaluate_symbol_defs(bps, bpsc, libc_base, bin_base);
+                verbose("\n");
 
                 // install breakpoints
                 _add_breakpoint(child, bp_malloc);
                 _add_breakpoint(child, bp_calloc);
                 _add_breakpoint(child, bp_free);
                 _add_breakpoint(child, bp_reallocarray);
-                
-                // print the type of binary etc
-                if (is_dynamic) {
-                    verbose(COLOR_RESET_BOLD "Dynamically-linked");
-                    if (is_stripped) verbose(", stripped");
-                    verbose(" binary")
-
-                    if (CHILD_LIBC_PATH) {
-                        char *ptr = get_libc_version(CHILD_LIBC_PATH);
-                        char *libc_version = ptr;
-                        if (!ptr) libc_version = "???";
-                        verbose(" using glibc version %s (%s)\n\n" COLOR_RESET, libc_version, CHILD_LIBC_PATH);
-                        if (ptr) {
-                            free(ptr);
-                            ptr = 0;
-                        }
-                    }
-                } else {
-                    verbose(COLOR_RESET_BOLD "Statically-linked");
-                    if (is_stripped) verbose(", stripped");
-                    verbose(" binary\n\n" COLOR_RESET);
-                }
             }
 
             ptrace(PTRACE_CONT, child, 0L, 0L);
