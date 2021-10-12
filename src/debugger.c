@@ -289,15 +289,19 @@ uint64_t get_auxv_entry(int pid) {
 
 // attempts to identify functions in stripped ELFs (bin_base only, not libc)
 void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base, uint64_t bin_base) {
-    debug("Attempting to identify function signatures in %s (stripped)...\n", fname);
+    int _printed_debug = 0;
     FILE *f = fopen(fname, "r");
     FunctionSignature *sigs = find_function_signatures(f);
     for (int i = 0; i < 5; i++) {
         FunctionSignature *sig = &sigs[i];
         //printf("(2) -> %s (%p) - %x (%p)\n", sig->name, sig, sig->offset, sig->offset);
         if (sig->offset) {
+            if (!_printed_debug) {
+                _printed_debug = 1;
+                info("Attempting to identify function signatures in %s (stripped)...\n", fname);
+            }
             uint64_t ptr = bin_base + sig->offset;
-            verbose(COLOR_LOG "* found \"%s\" function signature at " PTR " (bin_base+offset=" PTR "+" PTR ").\n" COLOR_RESET, sig->name, PTR_ARG(ptr), PTR_ARG(bin_base), PTR_ARG(sig->offset));
+            info(COLOR_LOG "* found \"%s\" function signature at " PTR " (bin_base+offset=" PTR "+" PTR ").\n" COLOR_RESET, sig->name, PTR_ARG(ptr), PTR_ARG(bin_base), PTR_ARG(sig->offset));
             for (int j = 0; j < bpsc; j++) {
                 Breakpoint *bp = bps[j];
                 if (!strcmp(sig->name, bp->name)) {
@@ -306,6 +310,8 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base
             }
         }
     }
+
+    if (_printed_debug) info("\n");
     if (sigs) free(sigs);
     fclose(f);
 }
