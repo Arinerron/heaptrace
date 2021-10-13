@@ -61,7 +61,7 @@ void post_malloc(uint64_t ptr) {
 
     if (chunk->state == STATE_MALLOC) {
         warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
-        warn_heap2("first malloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
+        warn_heap2("first allocated in operation " SYM, chunk->ops[STATE_MALLOC]);
     }
 
     chunk->state = STATE_MALLOC;
@@ -103,8 +103,8 @@ void pre_free(uint64_t iptr) {
         warn_heap2("container chunk malloc()'d in " SYM " @ " PTR " with size " SZ, chunk->ops[STATE_MALLOC], PTR_ARG(chunk->ptr), SZ_ARG(chunk->size));
     } else if (chunk->state == STATE_FREE) {
         warn_heap("attempting to double free a chunk");
+        warn_heap2("allocated in operation " SYM, chunk->ops[STATE_MALLOC]);
         warn_heap2("first freed in operation " SYM, chunk->ops[STATE_FREE]);
-        warn_heap2("malloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
     } else {
         // all is good!
         ASSERT(chunk->state != STATE_UNUSED, "cannot free unused chunk");
