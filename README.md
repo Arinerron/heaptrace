@@ -69,9 +69,7 @@ For example, if you wanted to automatically attach gdb at operation #3, you woul
 heaptrace --break-at=3 ./my-binary
 ```
 
-![screenshot-break.png](screenshot-break.png)
-
-See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries.
+See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries that heaptrace failed to automatically identify functions in.
 
 # Support
 

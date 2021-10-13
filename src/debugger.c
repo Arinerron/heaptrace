@@ -298,10 +298,10 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, uint64_t libc_base
         if (sig->offset) {
             if (!_printed_debug) {
                 _printed_debug = 1;
-                info("Attempting to identify function signatures in %s (stripped)...\n", fname);
+                info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG " (stripped)...\n", fname);
             }
             uint64_t ptr = bin_base + sig->offset;
-            info(COLOR_LOG "* found \"%s\" function signature at " PTR " (bin_base+offset=" PTR "+" PTR ").\n" COLOR_RESET, sig->name, PTR_ARG(ptr), PTR_ARG(bin_base), PTR_ARG(sig->offset));
+            info(COLOR_LOG "* found " COLOR_LOG_BOLD "%s" COLOR_LOG " at " PTR ".\n" COLOR_RESET, sig->name, PTR_ARG(sig->offset));
             for (int j = 0; j < bpsc; j++) {
                 Breakpoint *bp = bps[j];
                 if (!strcmp(sig->name, bp->name)) {
