@@ -17,6 +17,7 @@ static struct option long_options[] = {
     {"verbose", no_argument, NULL, 'v'},
     {"debug", no_argument, NULL, 'D'},
     {"environment", required_argument, NULL, 'e'},
+    {"break", required_argument, NULL, 'b'},
     {"break-at", required_argument, NULL, 'b'},
     {"symbols", required_argument, NULL, 's'},
     {"output", required_argument, NULL, 'o'},
@@ -65,6 +66,7 @@ int parse_args(int argc, char *argv[]) {
                 break;
             case 'b':
                 char *endp;
+                if (*optarg == '#') optarg++;
                 int break_at = strtoul(optarg, &endp, 10);
                 for (int i = 0; i < MAX_BREAK_ATS; i++) {
                     if (!break_ats[i]) {
