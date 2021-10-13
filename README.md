@@ -1,6 +1,6 @@
 # About
 
-heaptrace is a `ptrace`-based debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. It is useful for debugging binaries and doing heap pwn.
+heaptrace is a `ptrace`-based debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. Its purpose is to help visualize heap operations when debugging binaries or doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
