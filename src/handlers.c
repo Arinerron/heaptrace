@@ -12,8 +12,6 @@ static Chunk *orig_chunk;
 void pre_calloc(uint64_t nmemb, uint64_t isize) {
     size = (size_t)isize * (size_t)nmemb;
     
-    if (caused_by_heapalloc) return;
-
     CALLOC_COUNT++;
     oid = get_oid();
 
@@ -23,8 +21,6 @@ void pre_calloc(uint64_t nmemb, uint64_t isize) {
 
 
 void post_calloc(uint64_t ptr) {
-    if (caused_by_heapalloc) return;
-
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
 
     // store meta info
@@ -47,8 +43,6 @@ void post_calloc(uint64_t ptr) {
 void pre_malloc(uint64_t isize) {
     size = (size_t)isize;
     
-    if (caused_by_heapalloc) return;
-
     MALLOC_COUNT++;
     oid = get_oid();
 
@@ -58,8 +52,6 @@ void pre_malloc(uint64_t isize) {
 
 
 void post_malloc(uint64_t ptr) {
-    if (caused_by_heapalloc) return;
-
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
 
     // store meta info
@@ -81,8 +73,6 @@ void post_malloc(uint64_t ptr) {
 
 void pre_free(uint64_t iptr) {
     ptr = iptr;
-
-    if (caused_by_heapalloc) return;
 
     FREE_COUNT++;
     uint64_t oid = get_oid();
@@ -122,9 +112,7 @@ void pre_free(uint64_t iptr) {
 }
 
 
-void post_free(uint64_t retval) {
-    if (caused_by_heapalloc) return;
-}
+void post_free(uint64_t retval) {}
 
 
 // _type=1 means "realloc", _type=2 means "reallocarray"
@@ -134,8 +122,6 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
 
     ptr = iptr;
     size = isize * nmemb;
-
-    if (caused_by_heapalloc) return;
 
     if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
     uint64_t oid = get_oid();
