@@ -45,11 +45,12 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [
                             LD_PRELOAD=./libc.so.6 without having them affect 
                             heaptrace's runtime configuration.
 
--s <defs>, --symbols=<defs> Override the values heaptrace detects for the 
+-s <sym_defs>, --symbols=<sym_defs>
+                            Override the values heaptrace detects for the 
                             malloc/calloc/free/realloc/reallocarray symbols. 
-                            If the binary is stripped, this argument is 
-                            required to use heaptrace. See the wiki for more 
-                            info.
+                            Useful if heaptrace fails to automatically 
+                            identify heap functions in a stripped binary. See 
+                            the wiki for more info.
 
 -b <number>, --break-at=<number>
                             Send SIGSTOP to the process at heap operation 
@@ -62,7 +63,7 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [
                             returns.
 
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
-                            stderr (default).
+                            /dev/stderr (which is the default output path).
 
 -v, --verbose               Print verbose information such as line numbers in
                             source code given the required debugging info is
