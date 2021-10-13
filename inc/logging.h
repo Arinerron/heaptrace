@@ -58,7 +58,16 @@ extern FILE *output_fd;
 #define warn_heap(msg, ...) log(COLOR_ERROR "    |-- warning: " COLOR_ERROR_BOLD msg COLOR_RESET "\n", ##__VA_ARGS__)
 #define warn_heap2(msg, ...) log(COLOR_ERROR "    |   * " msg "\n" COLOR_RESET,  ##__VA_ARGS__)
 
-#define ASSERT(q, msg, ...) if (!(q)) { fatal_heap(msg, ##__VA_ARGS__); abort(); }
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#define ABORT() exit(1)
+#else
+#define ABORT() abort()
+#endif
+
+#define ASSERT(q, msg, ...) if (!(q)) { \
+    fatal_heap(msg, ##__VA_ARGS__); \
+        ABORT();  \
+    }
 #define ASSERT_NICE(q, msg, ...) if (!(q)) { fatal_heap(msg, ##__VA_ARGS__); }
 
 

@@ -23,8 +23,7 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
 
     if (tbytes == 0) {
         fclose(tfile);
-        fatal("mmap() failed in lookup_symbols");
-        abort();
+        ASSERT(tbytes != 0, "mmap() failed in lookup_symbols");
         return 0;
     }
 

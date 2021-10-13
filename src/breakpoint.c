@@ -30,8 +30,7 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
         }
     }
 
-    warn("no more breakpoints available. Please report this.\n");
-    abort();
+    ASSERT(0, "no more breakpoints available. Please report this.\n");
 }
 
 

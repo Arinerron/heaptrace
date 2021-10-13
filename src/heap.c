@@ -40,8 +40,7 @@ void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
         char *gdb_path = "/usr/bin/gdb";
         char *args[] = {gdb_path, "-p", buf, NULL};
         if (execv(args[0], args) == -1) {
-            fatal("failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
-            abort();
+            ASSERT(0, "failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
         }
         //raise(SIGSTOP);
     }

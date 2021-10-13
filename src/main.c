@@ -47,6 +47,10 @@ int main(int argc, char *argv[]) {
     }
     chargv[argc - start_at] = 0;
 
+    #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    chmod(chargv[0], 511);
+    #endif
+
     struct stat path_stat;
     if (access(chargv[0], F_OK) != 0) {
         fatal("unable to execute \"%s\": file does not exist.\n", chargv[0]);
