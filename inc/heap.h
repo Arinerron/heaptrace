@@ -38,9 +38,9 @@ static int chunks_initialized;
 
 void chunk_init();
 
-#define MAX_BREAK_ATS 0xff
-extern uint64_t break_ats[MAX_BREAK_ATS];
+extern uint64_t BREAK_AT;
+extern uint64_t BREAK_AFTER;
 
-void check_oid(uint64_t oid, int prepend_newline);
+void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline);
 uint64_t get_oid();
 void show_stats();

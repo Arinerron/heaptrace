@@ -16,7 +16,7 @@ void pre_calloc(uint64_t nmemb, uint64_t isize) {
     oid = get_oid();
 
     log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", oid, (size_t)nmemb, (size_t)isize);
-    check_oid(oid, 1); // see if it's time to pause
+    check_should_break(oid, BREAK_AT, 1);
 }
 
 
@@ -37,6 +37,8 @@ void post_calloc(uint64_t ptr) {
     chunk->ops[STATE_MALLOC] = oid;
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
+
+    check_should_break(oid, BREAK_AFTER, 1);
 }
 
 
@@ -47,7 +49,7 @@ void pre_malloc(uint64_t isize) {
     oid = get_oid();
 
     log_heap("... " SYM ": malloc(" SZ ")\t\t", oid, size);
-    check_oid(oid, 1); // see if it's time to pause
+    check_should_break(oid, BREAK_AT, 1);
 }
 
 
@@ -68,6 +70,8 @@ void post_malloc(uint64_t ptr) {
     chunk->ops[STATE_MALLOC] = oid;
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
+
+    check_should_break(oid, BREAK_AFTER, 1);
 }
 
 
@@ -108,11 +112,13 @@ void pre_free(uint64_t iptr) {
         chunk->ops[STATE_FREE] = oid;
     }
 
-    check_oid(oid, 0); // see if it's time to pause
+    check_should_break(oid, BREAK_AT, 0);
 }
 
 
-void post_free(uint64_t retval) {}
+void post_free(uint64_t retval) {
+    check_should_break(oid, BREAK_AFTER, 1);
+}
 
 
 // _type=1 means "realloc", _type=2 means "reallocarray"
@@ -153,7 +159,7 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
         warn_heap("attempting to %s a chunk that was never allocated", _name);
     }
 
-    check_oid(oid, 1); // see if it's time to pause
+    check_should_break(oid, BREAK_AT, 1);
 }
 
 
@@ -219,6 +225,8 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
             orig_chunk->ops[STATE_FREE] = oid;
         } // no need for else if (!orig_chunk) because !orig_chunk is above
     }
+
+    check_should_break(oid, BREAK_AFTER, 1);
 }
 
 void post_realloc(uint64_t new_ptr) {

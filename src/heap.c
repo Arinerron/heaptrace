@@ -9,7 +9,8 @@ uint64_t FREE_COUNT = 0;
 uint64_t REALLOC_COUNT = 0;
 uint64_t REALLOCARRAY_COUNT = 0;
 
-uint64_t break_ats[MAX_BREAK_ATS];
+uint64_t BREAK_AT = 0;
+uint64_t BREAK_AFTER = 0;
 
 // initialize the chunk meta if first time
 void chunk_init() {
@@ -19,20 +20,9 @@ void chunk_init() {
 
 
 // see if it's time to pause
-void check_oid(uint64_t oid, int prepend_newline) {
-    // TODO
-    if (!args_parsed_yet) {
-        //parse_arguments(); // TODO
-        args_parsed_yet = 1;
-    }
-
+void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
     // try reading from params second
-    int should_break = 0;
-    for (int i = 0; i < MAX_BREAK_ATS; i++) {
-        if (break_ats[i] == oid) {
-            should_break = 1;
-        }
-    }
+    int should_break = (break_at == oid);
 
     // now actually break if necessary
     if (should_break) {

@@ -2,8 +2,6 @@
 #include "breakpoint.h"
 #endif
 
-extern int args_parsed_yet;
-
 extern char *symbol_defs_str;
 
 

@@ -37,7 +37,7 @@ $ heaptrace ./target
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
 
 -e <environ>, --environment=<environ>
                             Sets a single environmental variable. Useful for 
@@ -51,9 +51,15 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/
                             required to use heaptrace. See the wiki for more 
                             info.
 
--b <oid>, --break-at=<oid>  Send SIGSTOP to the process at heap operation 
-                            specified in `oid` and attach the GNU debugger 
+-b <number>, --break-at=<number>
+                            Send SIGSTOP to the process at heap operation 
+                            specified in `number` and attach the GNU debugger 
                             (gdb) to the process.
+
+-B <number>, --break-after=<number>
+                            Similar to `--break-at`. Replaces the tracer 
+                            process with gdb, but only after the heap function 
+                            returns.
 
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
                             stderr (default).

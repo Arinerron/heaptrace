@@ -9,8 +9,6 @@
 #include "symbol.h"
 #include "heap.h"
 
-int args_parsed_yet = 0;
-
 char *symbol_defs_str = "";
 
 static struct option long_options[] = {
@@ -19,6 +17,7 @@ static struct option long_options[] = {
     {"environment", required_argument, NULL, 'e'},
     {"break", required_argument, NULL, 'b'},
     {"break-at", required_argument, NULL, 'b'},
+    {"break-after", required_argument, NULL, 'B'},
     {"symbols", required_argument, NULL, 's'},
     {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0}
@@ -26,8 +25,15 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break-at <oid>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
     exit(EXIT_FAILURE);
+}
+
+
+static uint64_t _parse_oid(char *optarg) {
+    char *endp;
+    while (*optarg == '#' || *optarg == ' ' || *optarg == '\n') optarg++;
+    return strtoul(optarg, &endp, 10);
 }
 
 
@@ -36,13 +42,8 @@ int parse_args(int argc, char *argv[]) {
     bool isCaseInsensitive = false;
     int opt;
 
-    // reset break-ats array
-    for (int i = 0; i < MAX_BREAK_ATS; i++) {
-        break_ats[i] = 0;
-    }
-
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "vDe:s:b:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vDe:s:b:B:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v':
                 OPT_VERBOSE = 1;
@@ -65,15 +66,10 @@ int parse_args(int argc, char *argv[]) {
                 }
                 break;
             case 'b':
-                char *endp;
-                if (*optarg == '#') optarg++;
-                int break_at = strtoul(optarg, &endp, 10);
-                for (int i = 0; i < MAX_BREAK_ATS; i++) {
-                    if (!break_ats[i]) {
-                        break_ats[i] = break_at;
-                        break;
-                    }
-                }
+                BREAK_AT = _parse_oid(optarg);
+                break;
+            case 'B':
+                BREAK_AFTER = _parse_oid(optarg);
                 break;
             case 'o':
                 FILE *_output_file = fopen(optarg, "a+");
