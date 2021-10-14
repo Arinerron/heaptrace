@@ -281,10 +281,9 @@ void start_debugger(char *chargv[]) {
     bp_reallocarray->pre_handler_nargs = 3;
     bp_reallocarray->post_handler = post_reallocarray;
 
-    SymbolEntry *ses[] = {se_malloc, se_calloc, se_free, se_realloc, se_reallocarray};
-    int sesc = 5; // TODO turn into null terminated
+    SymbolEntry *ses[] = {se_malloc, se_calloc, se_free, se_realloc, se_reallocarray, NULL};
     char *interp_name;
-    lookup_symbols(chargv[0], ses, sesc, &interp_name);
+    lookup_symbols(chargv[0], ses, &interp_name);
 
     if (interp_name) {
         //debug("Using interpreter \"%s\".\n", interp_name);

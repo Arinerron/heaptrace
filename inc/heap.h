@@ -36,8 +36,6 @@ extern uint64_t REALLOCARRAY_COUNT;
 
 static int chunks_initialized;
 
-void chunk_init();
-
 extern uint64_t BREAK_AT;
 extern uint64_t BREAK_AFTER;
 extern int BREAK_MAIN;

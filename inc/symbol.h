@@ -25,5 +25,5 @@ typedef struct SymbolEntry {
     int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC, SE_TYPE_DYNAMIC_PLT
 } SymbolEntry;
 
-int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name);
+int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name);
 char *get_libc_path(char *interp_path, char *elf_path);

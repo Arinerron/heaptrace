@@ -5,7 +5,7 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name) {
+int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name) {
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
         fatal("failed to open target.\n");
@@ -129,8 +129,9 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
     }
 
     // reset symbol entries
-    for (int i = 0; i < sesc; i++) {
-        SymbolEntry *cse = ses[i];
+    int sesi = 0;
+    while (ses[sesi]) {
+        SymbolEntry *cse = ses[sesi++];
         cse->type = SE_TYPE_UNRESOLVED;
     }
 
@@ -169,8 +170,9 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
                     n = pos - name;
                 }
 
-                for (int i = 0; i < sesc; i++) {
-                    SymbolEntry *cse = ses[i];
+                int sesi = 0;
+                while (ses[sesi]) {
+                    SymbolEntry *cse = ses[sesi++];
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
@@ -220,8 +222,9 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
                     n = pos - name;
                 }
 
-                for (int i = 0; i < sesc; i++) {
-                    SymbolEntry *cse = ses[i];
+                int sesi = 0;
+                while (ses[sesi]) {
+                    SymbolEntry *cse = ses[sesi++];
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC_PLT;
@@ -245,8 +248,9 @@ int lookup_symbols(char *fname, SymbolEntry **ses, int sesc, char **interp_name)
                 char *name = cbytes + strtab_off + sym.st_name;
                 _CHECK_BOUNDS(name, "static: name");
                 size_t n = strlen(name);
-                for (int i = 0; i < sesc; i++) {
-                    SymbolEntry *cse = ses[i];
+                int sesi = 0;
+                while (ses[sesi]) {
+                    SymbolEntry *cse = ses[sesi++];
                     if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
                         //printf("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
                         cse->type = SE_TYPE_STATIC;

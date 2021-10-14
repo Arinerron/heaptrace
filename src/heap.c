@@ -14,12 +14,6 @@ uint64_t BREAK_AFTER = 0;
 int BREAK_MAIN = 0;
 int BREAK_SIGSEGV = 0;
 
-// initialize the chunk meta if first time
-void chunk_init() {
-    // XXX deprecated, TODO delete this
-}
-
-
 
 // see if it's time to pause
 void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
