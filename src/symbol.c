@@ -1,4 +1,5 @@
 #include "symbol.h"
+#include "proc.h"
 #include "logging.h"
 
 

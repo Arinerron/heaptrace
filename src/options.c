@@ -35,7 +35,7 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
     exit(EXIT_FAILURE);
 }
 
@@ -84,7 +84,7 @@ int parse_args(int argc, char *argv[]) {
             case 'o':
                 FILE *_output_file = fopen(optarg, "a+");
                 if (!_output_file) {
-                    fprintf(stderr, "Failed to open logging file \"%s\".\n", optarg);
+                    fatal("failed to open logging file \"%s\".\n", optarg);
                     exit_failure(argv);
                 } else {
                     output_fd = _output_file;
@@ -96,7 +96,7 @@ int parse_args(int argc, char *argv[]) {
     }
 
     if (optind == argc) {
-        fprintf(stderr, "You must specify a binary to execute.\n");
+        fatal("you must specify a binary to execute.\n");
         exit_failure(argv);
     }
 
@@ -104,8 +104,16 @@ int parse_args(int argc, char *argv[]) {
 }
 
 
-void evaluate_symbol_defs(Breakpoint **bps, int bpsc, uint64_t libc_base, uint64_t bin_base) {
+void evaluate_symbol_defs(Breakpoint **bps, int bpsc, ProcMapsEntry *pme_head) {
     if (!strlen(symbol_defs_str)) return;
+
+    ProcMapsEntry *bin_pme = pme_walk(pme_head, PROCELF_TYPE_BINARY);
+    ProcMapsEntry *libc_pme = pme_walk(pme_head, PROCELF_TYPE_LIBC);
+    ASSERT(bin_pme, "Target binary is missing from process mappings (!bin_pme in evaluate_symbol_defs). Please report this!");
+    uint64_t bin_base = 0;
+    uint64_t libc_base = 0;
+    if (bin_pme) bin_base = bin_pme->base;
+    if (libc_pme) libc_base = libc_pme->base;
 
     char *orig_str = strdup(symbol_defs_str);
     size_t orig_str_len = strlen(orig_str);

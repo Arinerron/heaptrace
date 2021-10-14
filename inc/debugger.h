@@ -13,7 +13,9 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "breakpoint.h"
 #include "symbol.h"
+#include "proc.h"
 
 #define MAX_PATH_SIZE 1024 // WARNING: if you change this, search for 1024 first to avoid buffer overflow. I hardcoded it in some places because idk how to concat const int to str conveniently lol
 
@@ -24,11 +26,11 @@ extern uint64_t CHILD_LIBC_BASE;
 
 static int should_map_syms;
 
-uint64_t get_auxv_entry(int pid);
 void _check_breakpoints(int pid);
 
-int get_binary_location(int pid, uint64_t *bin_start, uint64_t *bin_end);
-uint64_t get_libc_base(int pid, char **libc_path_out);
+static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head);
+void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme_head);
+
 
 void end_debugger(int pid, int status);
 void start_debugger(char *chargv[]);

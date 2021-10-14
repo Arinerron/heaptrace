@@ -33,6 +33,7 @@ extern FILE *output_fd;
 #define log(fmt, ...) { fprintf(output_fd, (fmt), ##__VA_ARGS__); } // XXX: ansi colors to file?
 #define info(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); } // XXX: ansi colors to file?
 #define debug(fmt, ...) {if (OPT_DEBUG) { fprintf(output_fd, ("[ ] " COLOR_RESET_ITALIC fmt COLOR_RESET), ##__VA_ARGS__); }}
+#define debug2(fmt, ...) {if (OPT_DEBUG) { fprintf(output_fd, (COLOR_RESET_ITALIC fmt COLOR_RESET), ##__VA_ARGS__); }}
 #define verbose(fmt, ...) {if (OPT_VERBOSE) { fprintf(output_fd, (fmt), ##__VA_ARGS__); }}
 #define warn(fmt, ...) { fprintf(output_fd, (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
 #define warn2(f_, fmt, ...) { fprintf((f_), (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
