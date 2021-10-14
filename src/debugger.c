@@ -120,10 +120,10 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head) 
 
         uint64_t got_ptr = bin_pme->base + se->offset;
         uint64_t got_val = ptrace(PTRACE_PEEKDATA, pid, got_ptr, NULL);
-        debug(". peeked %p at GOT entry %p for %s (%d)\n", got_val, got_ptr, se->name, se->type);
+        debug(". peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, se->name, se->type);
 
         // check if this is in the PLT or if it's resolved to libc
-        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->end && got_val <= bin_pme->end)) {
+        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val <= bin_pme->end)) {
             // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
             // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
             got_val -= (uint64_t)0x6;

@@ -35,6 +35,15 @@ void post_calloc(uint64_t ptr) {
         warn_heap2("first calloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
     }
 
+    if (!ptr && !size) {
+        /* SEE MAN PAGE:
+         * On error, these functions return NULL. NULL may also be returned 
+         * by a successful call to malloc() with a size of zero, or by a 
+         * successful call to calloc() with nmemb or size equal to zero.
+         */
+        warn_heap("NULL return value indicates that an error happened");
+    } 
+
     chunk->state = STATE_MALLOC;
     chunk->ptr = ptr;
     chunk->size = size;
@@ -71,6 +80,15 @@ void post_malloc(uint64_t ptr) {
         warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
         warn_heap2("first allocated in operation " SYM, chunk->ops[STATE_MALLOC]);
     }
+
+    if (!ptr && !size) {
+        /* SEE MAN PAGE:
+         * On error, these functions return NULL. NULL may also be returned 
+         * by a successful call to malloc() with a size of zero, or by a 
+         * successful call to calloc() with nmemb or size equal to zero.
+         */
+        warn_heap("NULL return value indicates that an error happened");
+    } 
 
     chunk->state = STATE_MALLOC;
     chunk->ptr = ptr;
@@ -205,17 +223,17 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
     if (ptr == new_ptr) {
         // the chunk shrank
         
-        if (orig_chunk != new_chunk) {
-            debug("the new/old Chunk meta are not equiv (new=" PTR_ERR ", old=" PTR_ERR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
-        }
+        ASSERT_NICE(orig_chunk == new_chunk, "the new/old Chunk meta are not equiv (new=" PTR_ERR ", old=" PTR_ERR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
 
         if (new_chunk) {
             new_chunk->ops[STATE_MALLOC] = oid; // NOTE: we treat it as a malloc for now
+            new_chunk->ops[STATE_REALLOC] = oid;
             if (orig_chunk) {
                 orig_chunk->size = size;
             } // the else condition is unnecessary because there's a check above for !orig_chunk
         }
     } else {
+        int _override_free = 1; // this is because it doesn't free if reallocarray's size calc overflows
         if (new_ptr) {
             // the chunk moved
             new_chunk = alloc_chunk(new_ptr);
@@ -231,11 +249,26 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
             //new_chunk->ops[STATE_MALLOC] = (ptr ? orig_chunk->ops[STATE_MALLOC] : oid); // realloc can act as malloc() when ptr is 0
             new_chunk->ops[STATE_FREE] = 0;
             new_chunk->ops[STATE_REALLOC] = oid;
+
+            // old chunk gets marked as free after this if block
         } else {
-            ASSERT(!size, "realloc/reallocarray returned NULL even though size was not zero");
+            if (_type == 2) { // reallocarray only
+                /* FROM THE MAN PAGE:
+                 * However, unlike that realloc() call, reallocarray() fails 
+                 * safely in the case where the multiplication would overflow. 
+                 * If such an overflow occurs, reallocarray() returns NULL, 
+                 * sets errno to ENOMEM, and leaves the original block.
+                 */
+                if (size) {
+                    warn_heap("%s returned NULL even though size was not 0, indicating an error", _name);
+                    _override_free = 0; // this one case does NOT free
+                } // else means it was freed; it returns NULL too. Leave this case alone.
+            } else {
+                ASSERT(!size, "realloc/reallocarray returned NULL even though size was not zero");
+            }
         }
 
-        if (ptr && orig_chunk) {
+        if (ptr && orig_chunk && _override_free) {
             orig_chunk->state = STATE_FREE;
             orig_chunk->ops[STATE_FREE] = oid;
         } // no need for else if (!orig_chunk) because !orig_chunk is above
