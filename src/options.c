@@ -47,6 +47,17 @@ static uint64_t _parse_oid(char *optarg) {
 }
 
 
+static uint64_t parse_bp(char *optarg) {
+    if (!strcmp(optarg, "main") || !strcmp(optarg, "entry") || !strcmp(optarg, "start") || !strcmp(optarg, "_start")) {
+        BREAK_MAIN = 1;
+    } else if (!strcmp(optarg, "sigsegv") || !strcmp(optarg, "segv") || !strcmp(optarg, "error") || !strcmp(optarg, "abort") || !strcmp(optarg, "segfault")) {
+        BREAK_SIGSEGV = 1;
+    } else {
+        return _parse_oid(optarg);
+    }
+}
+
+
 // returns the index of the first non-argument in argv
 int parse_args(int argc, char *argv[]) {
     bool isCaseInsensitive = false;
@@ -76,10 +87,10 @@ int parse_args(int argc, char *argv[]) {
                 }
                 break;
             case 'b':
-                BREAK_AT = _parse_oid(optarg);
+                BREAK_AT = parse_bp(optarg);
                 break;
             case 'B':
-                BREAK_AFTER = _parse_oid(optarg);
+                BREAK_AFTER = parse_bp(optarg);
                 break;
             case 'o':
                 FILE *_output_file = fopen(optarg, "a+");

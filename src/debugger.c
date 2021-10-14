@@ -170,6 +170,7 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme
 
 
 void end_debugger(int pid, int status) {
+    int _was_sigsegv = 0;
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
     int code = (status >> 8) & 0xffff;
 
@@ -177,6 +178,7 @@ void end_debugger(int pid, int status) {
         log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
         if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
         log("." COLOR_RESET " ", code);
+        _was_sigsegv = 1;
     }
 
     if (WCOREDUMP(status)) {
@@ -186,6 +188,7 @@ void end_debugger(int pid, int status) {
     log("\n");
     show_stats();
 
+    if (_was_sigsegv) check_should_break(1, BREAK_SIGSEGV, 0);
     _remove_breakpoints(pid);
     exit(0);
 }
@@ -224,6 +227,7 @@ uint64_t CHILD_LIBC_BASE = 0;
 // in auxv and fetched on the first run.
 void _pre_entry() {
     should_map_syms = 1;
+    check_should_break(1, BREAK_MAIN, 0);
 }
 
 

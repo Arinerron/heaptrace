@@ -58,6 +58,12 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/
                             function) and attach the GNU debugger (gdb) to the 
                             process.
 
+                            Also supports "segfault" in the `number` arg to 
+                            launch gdb if the process exits abnormally 
+                            (SIGSEGV, abort(), etc). And, "main" will break at 
+                            the entry point to the binary (the binary's 
+                            auxiliary vector).
+
 -B <number>, --break-after=<number>
                             Similar to `--break-at`. Replaces the tracer 
                             process with gdb, but only after the heap function 
