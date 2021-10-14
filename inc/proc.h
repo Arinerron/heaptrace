@@ -21,6 +21,7 @@ typedef struct ProcMapsEntry {
 void free_pme_list(ProcMapsEntry *first_pme);
 ProcMapsEntry *build_pme_list(int pid);
 ProcMapsEntry *pme_walk(ProcMapsEntry *pme_head, ProcELFType pet);
+ProcMapsEntry *pme_find_addr(ProcMapsEntry *pme_head, uint64_t addr);
 
 uint64_t get_auxv_entry(int pid);
 

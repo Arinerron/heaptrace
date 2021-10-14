@@ -113,6 +113,16 @@ ProcMapsEntry *pme_walk(ProcMapsEntry *pme_head, ProcELFType pet) {
 }
 
 
+ProcMapsEntry *pme_find_addr(ProcMapsEntry *pme_head, uint64_t addr) {
+    ProcMapsEntry *pme = pme_head;
+    while(pme) {
+        if (addr >= pme->base && addr < pme->end) break;
+        pme = pme->_next;
+    }
+    return pme;
+}
+
+
 
 uint64_t get_auxv_entry(int pid) {
     char *auxvpath = malloc(MAX_PATH_SIZE + 1);

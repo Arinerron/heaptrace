@@ -9,6 +9,27 @@ static uint64_t oid;
 static Chunk *orig_chunk;
 
 char *BETWEEN_PRE_AND_POST = 0;
+uint64_t cur_ret_ptr = 0;
+ProcELFType ret_ptr_section_type = PROCELF_TYPE_UNKNOWN;
+
+
+static inline char *_get_source_section() {
+    if (OPT_VERBOSE) {
+        switch (ret_ptr_section_type) {
+            case PROCELF_TYPE_LIBC:
+                return "caller: libc";
+                break;
+            case PROCELF_TYPE_UNKNOWN:
+                return "caller: a library";
+                break;
+            case PROCELF_TYPE_BINARY:
+                return "caller: binary";
+                break;
+        }
+    }
+
+    return "caller: (unknown)";
+}
 
 
 void pre_calloc(uint64_t nmemb, uint64_t isize) {
@@ -26,6 +47,7 @@ void pre_calloc(uint64_t nmemb, uint64_t isize) {
 
 void post_calloc(uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
+    verbose_heap("%s", _get_source_section());
 
     // store meta info
     Chunk *chunk = alloc_chunk(ptr);
@@ -72,6 +94,7 @@ void pre_malloc(uint64_t isize) {
 
 void post_malloc(uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
+    verbose_heap("%s", _get_source_section());
 
     // store meta info
     Chunk *chunk = alloc_chunk(ptr);
@@ -148,6 +171,7 @@ void pre_free(uint64_t iptr) {
 
 void post_free(uint64_t retval) {
     BETWEEN_PRE_AND_POST = 0;
+    verbose_heap("%s", _get_source_section());
     check_should_break(oid, BREAK_AFTER, 1);
 }
 
@@ -207,7 +231,7 @@ void pre_reallocarray(uint64_t iptr, uint64_t nmemb, uint64_t isize) {
 
 
 // _type=1 means "realloc", _type=2 means "reallocarray"
-static void _post_realloc(int _type, uint64_t new_ptr) {
+static inline void _post_realloc(int _type, uint64_t new_ptr) {
     char *_name = "realloc";
     if (_type == 2) _name = "reallocarray";
 
@@ -216,6 +240,7 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
         log("\t%s(" SYM_IT "=" PTR_IT ")", COLOR_LOG_ITALIC, orig_chunk->ops[STATE_MALLOC], PTR_ARG(ptr));
     }
     log_heap("\n");
+    verbose_heap("%s", _get_source_section());
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
     Chunk *new_chunk = alloc_chunk(new_ptr);

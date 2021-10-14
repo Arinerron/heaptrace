@@ -54,6 +54,7 @@ extern FILE *output_fd;
 #define PTR_ARG(ptr) ((long long unsigned int)(ptr))
 
 #define log_heap(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); }
+#define verbose_heap(fmt, ...) { if (OPT_VERBOSE) { fprintf(output_fd, (COLOR_LOG "\t^-- " COLOR_LOG_ITALIC fmt COLOR_RESET "\n"), ##__VA_ARGS__); } }
 #define fatal_heap(msg, ...) log(COLOR_ERROR_BOLD "heaptrace error: " COLOR_ERROR msg COLOR_RESET "\n", ##__VA_ARGS__)
 //#define warn2(msg) log("%sheaptrace warning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR, (msg), COLOR_RESET) 
 #define warn_heap(msg, ...) log(COLOR_ERROR "    |-- warning: " COLOR_ERROR_BOLD msg COLOR_RESET "\n", ##__VA_ARGS__)

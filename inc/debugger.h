@@ -26,7 +26,7 @@ extern uint64_t CHILD_LIBC_BASE;
 
 static int should_map_syms;
 
-void _check_breakpoints(int pid);
+void _check_breakpoints(int pid, ProcMapsEntry *pme_head);
 
 static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head);
 void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme_head);

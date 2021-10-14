@@ -19,7 +19,7 @@
 int CHILD_PID = 0;
 static int in_breakpoint = 0;
 
-void _check_breakpoints(int pid) {
+void _check_breakpoints(int pid, ProcMapsEntry *pme_head) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     uint64_t reg_rip = (uint64_t)regs.rip - 1;
@@ -64,8 +64,15 @@ void _check_breakpoints(int pid) {
                             bp->_is_inside = 1;
 
                             if (bp->post_handler) {
-                                // install return value catcher breakpoint
                                 uint64_t val_at_reg_rsp = (uint64_t)ptrace(PTRACE_PEEKDATA, pid, regs.rsp, 0L);
+                                if (OPT_VERBOSE) {
+                                    ProcMapsEntry *pme = pme_find_addr(pme_head, val_at_reg_rsp);
+                                    if (pme) {
+                                        ret_ptr_section_type = pme->pet;
+                                    }
+                                }
+
+                                // install return value catcher breakpoint
                                 Breakpoint *bp2 = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
                                 bp2->name = "_tmp";
                                 bp2->addr = val_at_reg_rsp;
@@ -123,7 +130,7 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head) 
         debug(". peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, se->name, se->type);
 
         // check if this is in the PLT or if it's resolved to libc
-        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val <= bin_pme->end)) {
+        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
             // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
             // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
             got_val -= (uint64_t)0x6;
@@ -363,7 +370,7 @@ void start_debugger(char *chargv[]) {
                 debug("warning: hit unknown status code %d\n", status);
             }
 
-            _check_breakpoints(child);
+            _check_breakpoints(child, pme_head);
             if (should_map_syms) {
                 should_map_syms = 0;
 

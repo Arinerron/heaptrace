@@ -11,7 +11,10 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "proc.h"
+
 extern char *BETWEEN_PRE_AND_POST;
+extern ProcELFType ret_ptr_section_type; // NOTE: only updated if OPT_VERBOSE
 
 void pre_malloc(uint64_t isize);
 void post_malloc(uint64_t ptr);
