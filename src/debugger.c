@@ -178,12 +178,18 @@ void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme
 }
 
 
-void end_debugger(int pid, int status) {
+void end_debugger(int pid, int status, int should_detach) {
     int _was_sigsegv = 0;
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
     int code = (status >> 8) & 0xffff;
 
-    if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
+    if (status >> 16 == PTRACE_EVENT_EXEC) {
+        log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
+
+        // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
+        if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
+        log("." COLOR_RESET " ", code);
+    } else if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
         log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
         if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
         log("." COLOR_RESET " ", code);
@@ -199,6 +205,7 @@ void end_debugger(int pid, int status) {
 
     if (_was_sigsegv) check_should_break(1, BREAK_SIGSEGV, 0);
     _remove_breakpoints(pid, 1);
+    if (should_detach) ptrace(PTRACE_DETACH, CHILD_PID, NULL, SIGCONT);
     exit(0);
 }
 
@@ -345,8 +352,9 @@ void start_debugger(char *chargv[]) {
 
         while(waitpid(child, &status, 0)) {
             if (OPT_FOLLOW_FORK) {
-                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
-            }
+                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);
+            } else
+                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEEXEC);
 
             struct user_regs_struct regs;
             ptrace(PTRACE_GETREGS, child, 0, &regs);
@@ -371,7 +379,7 @@ void start_debugger(char *chargv[]) {
             if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV || status == 0x67f) {
                 free_pme_list(pme_head);
                 pme_head = 0;
-                end_debugger(child, status);
+                end_debugger(child, status, 0);
             } else if (status == 0x57f) { /* status SIGTRAP */ 
                 _check_breakpoints(child, pme_head);
             } else if (status >> 16 == PTRACE_EVENT_FORK || status >> 16 == PTRACE_EVENT_VFORK || status >> 16 == PTRACE_EVENT_CLONE) { /* fork, vfork, or clone */
@@ -396,6 +404,9 @@ void start_debugger(char *chargv[]) {
                     // But ideally we print out when there's a fork as shown above to that the user knows to use -F
                     //ptrace(PTRACE_CONT, child, 0L, 0L);
                 }
+            } else if (status >> 16 == PTRACE_EVENT_EXEC) {
+                debug("Detected exec() call, detaching...\n");
+                end_debugger(child, status, 1);
             } else {
                 debug("warning: hit unknown status code %d\n", status);
             }

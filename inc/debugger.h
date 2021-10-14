@@ -34,5 +34,5 @@ static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head);
 void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme_head);
 
 
-void end_debugger(int pid, int status);
+void end_debugger(int pid, int status, int should_detach);
 void start_debugger(char *chargv[]);
