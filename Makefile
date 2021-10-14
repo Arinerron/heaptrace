@@ -45,7 +45,7 @@ uninstall:
 # Basic package information
 PKG_NAME=heaptrace
 PKG_DESCRIPTION="heaptrace is a glibc heap debugger useful for pwn and debugging"
-PKG_VERSION=2.2.0
+PKG_VERSION=2.2.1
 PKG_RELEASE=0
 PKG_MAINTAINER="Aaron Esau \<contact@aaronesau.com\>"
 PKG_ARCH=x86_64
