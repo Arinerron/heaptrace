@@ -69,17 +69,23 @@ int parse_args(int argc, char *argv[]) {
     extern char **environ;
     while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:o:", long_options, NULL)) != -1) {
         switch (opt) {
-            case 'v':
+            case 'v': {
                 OPT_VERBOSE = 1;
                 break;
-            case 'D':
+            }
+
+            case 'D': {
                 OPT_DEBUG = 1;
                 OPT_VERBOSE = 1;
                 break;
-            case 's':
+            }
+
+            case 's': {
                 symbol_defs_str = (char *)optarg;
                 break;
-            case 'e':
+            }
+
+            case 'e': {
                 char *_eq = strstr(optarg, "=");
                 if (!_eq) {
                     setenv(optarg, "", 1);
@@ -89,16 +95,24 @@ int parse_args(int argc, char *argv[]) {
                     setenv(optarg, val, 1);
                 }
                 break;
-            case 'b':
+            }
+
+            case 'b': {
                 BREAK_AT = parse_bp(optarg);
                 break;
-            case 'B':
+            }
+
+            case 'B': {
                 BREAK_AFTER = parse_bp(optarg);
                 break;
-            case 'F':
+            }
+
+            case 'F': {
                 OPT_FOLLOW_FORK = 1;
                 break;
-            case 'o':
+            }
+
+            case 'o': {
                 FILE *_output_file = fopen(optarg, "a+");
                 if (!_output_file) {
                     fatal("failed to open logging file \"%s\".\n", optarg);
@@ -107,8 +121,11 @@ int parse_args(int argc, char *argv[]) {
                     output_fd = _output_file;
                 }
                 break;
-            default:
+            }
+
+            default: {
                 exit_failure(argv);
+            }
         }
     }
 
@@ -171,7 +188,7 @@ void evaluate_symbol_defs(Breakpoint **bps, int bpsc, ProcMapsEntry *pme_head) {
                 _sym_sign = '+';
                 continue;
             } else if (c == '-' || c == '+' || c == ',' || c == ';') {
-parsevalue:
+parsevalue:;
                 uint64_t val = 0;
                 if (strcmp(buf, "libc") == 0) val = libc_base;
                 else if (strcmp(buf, "bin") == 0) val = bin_base;
