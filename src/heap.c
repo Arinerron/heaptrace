@@ -16,6 +16,7 @@ int BREAK_SIGSEGV = 0;
 
 
 // see if it's time to pause
+// XXX: this function should be in debugger.c
 void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
     // try reading from params second
     int should_break = (break_at == oid);
@@ -28,7 +29,7 @@ void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
         if (prepend_newline) log("    "); // XXX/HACK: see above
 
         // launch gdb
-        _remove_breakpoints(CHILD_PID);
+        _remove_breakpoints(CHILD_PID, 1);
         ptrace(PTRACE_DETACH, CHILD_PID, NULL, SIGSTOP);
 
         char buf[10+1];

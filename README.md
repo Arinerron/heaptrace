@@ -37,7 +37,7 @@ $ heaptrace ./target
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] <target> [args...]
 
 -e <name=value>, --environ=<name=value>, --environment=<name=value>
                             Sets a single environmental variable. Useful for 
@@ -68,6 +68,14 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/
                             Similar to `--break-at`. Replaces the tracer 
                             process with gdb, but only after the heap function 
                             returns.
+
+-F, --follow-fork, --follow
+                            Tells heaptrace to detach the parent and follow 
+                            the child if the target calls fork(), vfork(), or 
+                            clone().
+
+                            The default behavior is to detatch the child and 
+                            only trace the parent.
 
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
                             /dev/stderr (which is the default output path).

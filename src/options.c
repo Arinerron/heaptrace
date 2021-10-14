@@ -6,8 +6,8 @@
 
 #include "logging.h"
 #include "options.h"
-#include "symbol.h"
 #include "heap.h"
+#include "debugger.h"
 
 char *symbol_defs_str = "";
 
@@ -27,6 +27,9 @@ static struct option long_options[] = {
     {"symbols", required_argument, NULL, 's'},
     {"syms", required_argument, NULL, 's'},
     {"symbol", required_argument, NULL, 's'},
+    
+    {"follow-fork", no_argument, NULL, 'F'},
+    {"follow", no_argument, NULL, 'F'},
 
     {"output", required_argument, NULL, 'o'},
 
@@ -35,7 +38,7 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] <target> [args...]\n", argv[0]);
     exit(EXIT_FAILURE);
 }
 
@@ -64,7 +67,7 @@ int parse_args(int argc, char *argv[]) {
     int opt;
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "vDe:s:b:B:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v':
                 OPT_VERBOSE = 1;
@@ -91,6 +94,9 @@ int parse_args(int argc, char *argv[]) {
                 break;
             case 'B':
                 BREAK_AFTER = parse_bp(optarg);
+                break;
+            case 'F':
+                OPT_FOLLOW_FORK = 1;
                 break;
             case 'o':
                 FILE *_output_file = fopen(optarg, "a+");

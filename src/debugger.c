@@ -19,6 +19,8 @@
 int CHILD_PID = 0;
 static int in_breakpoint = 0;
 
+int OPT_FOLLOW_FORK = 0;
+
 void _check_breakpoints(int pid, ProcMapsEntry *pme_head) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
@@ -94,7 +96,7 @@ void _check_breakpoints(int pid, ProcMapsEntry *pme_head) {
                             if (orig_bp->post_handler) {
                                 ((void(*)(uint64_t))orig_bp->post_handler)(regs.rax);
                             }
-                            _remove_breakpoint(pid, bp);
+                            _remove_breakpoint(pid, bp, 1);
                             orig_bp->_is_inside = 0;
                         } else {
                             // we never installed a return value catcher breakpoint!
@@ -196,7 +198,7 @@ void end_debugger(int pid, int status) {
     show_stats();
 
     if (_was_sigsegv) check_should_break(1, BREAK_SIGSEGV, 0);
-    _remove_breakpoints(pid);
+    _remove_breakpoints(pid, 1);
     exit(0);
 }
 
@@ -339,8 +341,13 @@ void start_debugger(char *chargv[]) {
         should_map_syms = 0;
         int first_signal = 1; // XXX: this is confusing. refactor later.
         CHILD_PID = child;
+        debug("Started target process in PID %d\n", child);
 
         while(waitpid(child, &status, 0)) {
+            if (OPT_FOLLOW_FORK) {
+                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
+            }
+
             struct user_regs_struct regs;
             ptrace(PTRACE_GETREGS, child, 0, &regs);
 
@@ -365,11 +372,34 @@ void start_debugger(char *chargv[]) {
                 free_pme_list(pme_head);
                 pme_head = 0;
                 end_debugger(child, status);
-            } else if (status == 0x57f) { /* status SIGTRAP */ } else {
+            } else if (status == 0x57f) { /* status SIGTRAP */ 
+                _check_breakpoints(child, pme_head);
+            } else if (status >> 16 == PTRACE_EVENT_FORK || status >> 16 == PTRACE_EVENT_VFORK || status >> 16 == PTRACE_EVENT_CLONE) { /* fork, vfork, or clone */
+                long newpid;
+                ptrace(PTRACE_GETEVENTMSG, child, NULL, &newpid);
+                //ptrace(PTRACE_DETACH, child, NULL, SIGSTOP);
+                //_remove_breakpoints(child, 0);
+                //ptrace(PTRACE_CONT, child, NULL, NULL);
+
+                if (OPT_FOLLOW_FORK) {
+                    log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%d). Following fork...\n\n", child, newpid);
+                    ptrace(PTRACE_DETACH, child, NULL, SIGCONT);
+                    child = newpid;
+                    CHILD_PID = newpid;
+                    ptrace(PTRACE_SETOPTIONS, newpid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
+                    //ptrace(PTRACE_CONT, newpid, 0L, 0L);
+                } else {
+                    debug("detected process fork, use --follow-fork to folow it. Parent PID is %d, child PID is %d.\n", child, newpid);
+                    ptrace(PTRACE_DETACH, newpid, NULL, SIGSTOP);
+                    // XXX: There seems to be some kind of race condition here. The parent process randomly continues like a tenth of the time.
+                    // As a stopgap solution I put the if(OPT_FOLLOW_FORK) around the ptrace(PTRACE_SETOPTIONS, ...) right after the while() loop start.
+                    // But ideally we print out when there's a fork as shown above to that the user knows to use -F
+                    //ptrace(PTRACE_CONT, child, 0L, 0L);
+                }
+            } else {
                 debug("warning: hit unknown status code %d\n", status);
             }
 
-            _check_breakpoints(child, pme_head);
             if (should_map_syms) {
                 should_map_syms = 0;
 
@@ -380,7 +410,7 @@ void start_debugger(char *chargv[]) {
                 
                 // quick debug info about addresses/paths we found
                 ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
-                debug("Found memory maps... binary (%s): %p-%p", bin_pme->name, bin_pme->base, bin_pme->end);
+                debug("found memory maps... binary (%s): %p-%p", bin_pme->name, bin_pme->base, bin_pme->end);
                 if (libc_pme) {
                     char *name = libc_pme->name;
                     if (!name) name = "<UNKNOWN>";

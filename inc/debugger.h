@@ -21,6 +21,8 @@
 
 #define STATUS_SIGSEGV 0xb7f
 
+extern int OPT_FOLLOW_FORK;
+
 extern int CHILD_PID;
 extern uint64_t CHILD_LIBC_BASE;
 

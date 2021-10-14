@@ -32,7 +32,7 @@ typedef struct Breakpoint {
 extern Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 
 void _add_breakpoint(int pid, Breakpoint *bp);
-void _remove_breakpoint(int pid, Breakpoint *bp);
-void _remove_breakpoints(int pid);
+void _remove_breakpoint(int pid, Breakpoint *bp, int should_break);
+void _remove_breakpoints(int pid, int should_break);
 
 #endif

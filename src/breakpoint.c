@@ -34,7 +34,7 @@ void _add_breakpoint(int pid, Breakpoint *bp) {
 }
 
 
-void _remove_breakpoint(int pid, Breakpoint *bp) {
+void _remove_breakpoint(int pid, Breakpoint *bp, int should_free) {
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
         if (breakpoints[i] == bp) {
             breakpoints[i] = 0;
@@ -42,15 +42,15 @@ void _remove_breakpoint(int pid, Breakpoint *bp) {
     }
     
     ptrace(PTRACE_POKEDATA, pid, bp->addr, bp->orig_data);
-    free(bp);
+    if (should_free) free(bp);
 }
 
 
-void _remove_breakpoints(int pid) {
+void _remove_breakpoints(int pid, int should_free) {
     debug("removing all breakpoints...\n");
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
         if (breakpoints[i]) {
-            _remove_breakpoint(pid, breakpoints[i]);
+            _remove_breakpoint(pid, breakpoints[i], should_free);
         }
     }
 }
