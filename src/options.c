@@ -13,13 +13,23 @@ char *symbol_defs_str = "";
 
 static struct option long_options[] = {
     {"verbose", no_argument, NULL, 'v'},
-    {"debug", no_argument, NULL, 'D'},
+    
+    {"debug", no_argument, NULL, 'D'}, // hidden, for dev use only
+    
     {"environment", required_argument, NULL, 'e'},
+    {"environ", required_argument, NULL, 'e'},
+    
     {"break", required_argument, NULL, 'b'},
     {"break-at", required_argument, NULL, 'b'},
+    
     {"break-after", required_argument, NULL, 'B'},
+
     {"symbols", required_argument, NULL, 's'},
+    {"syms", required_argument, NULL, 's'},
+    {"symbol", required_argument, NULL, 's'},
+
     {"output", required_argument, NULL, 'o'},
+
     {NULL, 0, NULL, 0}
 };
 

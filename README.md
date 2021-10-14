@@ -37,9 +37,9 @@ $ heaptrace ./target
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-o/--output <filename>] <target> [args...]
 
--e <environ>, --environment=<environ>
+-e <name=value>, --environ=<name=value>, --environment=<name=value>
                             Sets a single environmental variable. Useful for 
                             setting runtime settings for the target such as 
                             LD_PRELOAD=./libc.so.6 without having them affect 
@@ -52,10 +52,11 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [
                             identify heap functions in a stripped binary. See 
                             the wiki for more info.
 
--b <number>, --break-at=<number>
+-b <number>, --break=<number>, --break-at=<number>
                             Send SIGSTOP to the process at heap operation 
-                            specified in `number` and attach the GNU debugger 
-                            (gdb) to the process.
+                            specified in `number` (before executing the heap 
+                            function) and attach the GNU debugger (gdb) to the 
+                            process.
 
 -B <number>, --break-after=<number>
                             Similar to `--break-at`. Replaces the tracer 
@@ -73,7 +74,7 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break-at <number>] [
 For example, if you wanted to automatically attach gdb at operation #3, you would execute:
 
 ```
-heaptrace --break-at=3 ./my-binary
+heaptrace --break=3 ./my-binary
 ```
 
 See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries that heaptrace failed to automatically identify functions in.
