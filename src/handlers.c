@@ -8,6 +8,8 @@ static uint64_t ptr;
 static uint64_t oid;
 static Chunk *orig_chunk;
 
+char *BETWEEN_PRE_AND_POST = 0;
+
 
 void pre_calloc(uint64_t nmemb, uint64_t isize) {
     size = (size_t)isize * (size_t)nmemb;
@@ -17,6 +19,8 @@ void pre_calloc(uint64_t nmemb, uint64_t isize) {
 
     log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", oid, (size_t)nmemb, (size_t)isize);
     check_should_break(oid, BREAK_AT, 1);
+
+    BETWEEN_PRE_AND_POST = "calloc";
 }
 
 
@@ -38,6 +42,8 @@ void post_calloc(uint64_t ptr) {
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
 
+    BETWEEN_PRE_AND_POST = 0;
+
     check_should_break(oid, BREAK_AFTER, 1);
 }
 
@@ -50,6 +56,8 @@ void pre_malloc(uint64_t isize) {
 
     log_heap("... " SYM ": malloc(" SZ ")\t\t", oid, size);
     check_should_break(oid, BREAK_AT, 1);
+
+    BETWEEN_PRE_AND_POST = "malloc";
 }
 
 
@@ -70,6 +78,8 @@ void post_malloc(uint64_t ptr) {
     chunk->ops[STATE_MALLOC] = oid;
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
+
+    BETWEEN_PRE_AND_POST = 0;
 
     check_should_break(oid, BREAK_AFTER, 1);
 }
@@ -112,11 +122,14 @@ void pre_free(uint64_t iptr) {
         chunk->ops[STATE_FREE] = oid;
     }
 
+    BETWEEN_PRE_AND_POST = "free";
+
     check_should_break(oid, BREAK_AT, 0);
 }
 
 
 void post_free(uint64_t retval) {
+    BETWEEN_PRE_AND_POST = 0;
     check_should_break(oid, BREAK_AFTER, 1);
 }
 
@@ -158,6 +171,8 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
         log_heap("\n");
         warn_heap("attempting to %s a chunk that was never allocated", _name);
     }
+
+    BETWEEN_PRE_AND_POST = _name;
 
     check_should_break(oid, BREAK_AT, 1);
 }
@@ -225,6 +240,8 @@ static void _post_realloc(int _type, uint64_t new_ptr) {
             orig_chunk->ops[STATE_FREE] = oid;
         } // no need for else if (!orig_chunk) because !orig_chunk is above
     }
+
+    BETWEEN_PRE_AND_POST = 0;
 
     check_should_break(oid, BREAK_AFTER, 1);
 }

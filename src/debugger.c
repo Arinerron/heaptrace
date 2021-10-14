@@ -4,6 +4,8 @@
 #include <string.h>
 #include <sys/personality.h>
 #include <linux/auxvec.h>
+#include <signal.h>
+#include <string.h>
 
 #include "debugger.h"
 #include "handlers.h"
@@ -321,13 +323,16 @@ void end_debugger(int pid, int status) {
     int code = (status >> 8) & 0xffff;
 
     if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
-        log(COLOR_ERROR "Process exited abnormally (status: " COLOR_ERROR_BOLD "%d" COLOR_ERROR ")." COLOR_RESET " ", code);
+        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
+        if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
+        log("." COLOR_RESET " ", code);
     }
 
     if (WCOREDUMP(status)) {
         log(COLOR_ERROR "Core dumped. " COLOR_LOG);
     }
 
+    log("\n");
     show_stats();
 
     _remove_breakpoints(pid);
