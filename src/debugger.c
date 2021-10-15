@@ -471,6 +471,7 @@ void start_debugger(char *chargv[]) {
                 _add_breakpoint(child, bp_malloc);
                 _add_breakpoint(child, bp_calloc);
                 _add_breakpoint(child, bp_free);
+                _add_breakpoint(child, bp_realloc);
                 _add_breakpoint(child, bp_reallocarray);
             }
 

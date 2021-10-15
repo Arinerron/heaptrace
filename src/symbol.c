@@ -173,8 +173,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name) {
                 int sesi = 0;
                 while (ses[sesi]) {
                     SymbolEntry *cse = ses[sesi++];
-                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
-                        //printf("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
+                        debug("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
@@ -225,8 +225,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name) {
                 int sesi = 0;
                 while (ses[sesi]) {
                     SymbolEntry *cse = ses[sesi++];
-                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
-                        //printf("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                    if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
+                        debug("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC_PLT;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
@@ -251,8 +251,8 @@ int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name) {
                 int sesi = 0;
                 while (ses[sesi]) {
                     SymbolEntry *cse = ses[sesi++];
-                    if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strncmp(cse->name, name, n) == 0) {
-                        //printf("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
+                    if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
+                        debug("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
                         cse->type = SE_TYPE_STATIC;
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;
                         cse->section = sym.st_shndx;

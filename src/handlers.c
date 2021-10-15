@@ -187,7 +187,7 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
     if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
     uint64_t oid = get_oid();
 
-    orig_chunk = find_chunk(ptr);
+    orig_chunk = alloc_chunk(ptr);
 
     log_heap("... " SYM ": %s(", oid, _name);
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
@@ -248,7 +248,7 @@ static inline void _post_realloc(int _type, uint64_t new_ptr) {
     if (ptr == new_ptr) {
         // the chunk shrank
         
-        ASSERT_NICE(orig_chunk == new_chunk, "the new/old Chunk meta are not equiv (new=" PTR_ERR ", old=" PTR_ERR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
+        //ASSERT_NICE(orig_chunk == new_chunk, "the new/old Chunk meta are not equiv (new=" PTR_ERR ", old=" PTR_ERR ")", PTR_ARG(new_chunk), PTR_ARG(orig_chunk));
 
         if (new_chunk) {
             new_chunk->ops[STATE_MALLOC] = oid; // NOTE: we treat it as a malloc for now
