@@ -27,7 +27,7 @@ void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, 
         debug2("\n");
         debug("decided to break @ check_should_break(oid=%d, break_at=%d, prepend_newline=%d)\n", oid, break_at, prepend_newline);
         debug("\tBREAK_AT=%d, BREAK_AFTER=%d, BREAK_MAIN=%d, BREAK_SIGSEGV=%d\n", BREAK_AT, BREAK_AFTER, BREAK_MAIN, BREAK_SIGSEGV);
-        debug("\tBETWEEN_PRE_AND_POST=%d\n", BETWEEN_PRE_AND_POST);
+        debug("\tBETWEEN_PRE_AND_POST=%d\n", ctx->between_pre_and_post);
 
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");

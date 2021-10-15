@@ -70,7 +70,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                                 if (OPT_VERBOSE) {
                                     ProcMapsEntry *pme = pme_find_addr(ctx->pme_head, val_at_reg_rsp);
                                     if (pme) {
-                                        ret_ptr_section_type = pme->pet;
+                                        ctx->ret_ptr_section_type = pme->pet;
                                     }
                                 }
 
@@ -190,12 +190,12 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
-        if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid());
         log("." COLOR_RESET " ", code);
     } else if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
         log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
-        if (BETWEEN_PRE_AND_POST) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", BETWEEN_PRE_AND_POST, get_oid());
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid());
         log("." COLOR_RESET " ", code);
         _was_sigsegv = 1;
     }

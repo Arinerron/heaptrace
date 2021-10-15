@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     chargv[argc - start_at] = NULL;
 
     HeaptraceContext *ctx = alloc_ctx();
+    ASSERT(ctx, "alloc_ctx() returned NULL. Please report this.");
     ctx->target_path = chargv[0];
     ctx->target_argv = chargv;
 

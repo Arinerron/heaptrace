@@ -14,9 +14,6 @@
 #include "proc.h"
 #include "context.h"
 
-extern char *BETWEEN_PRE_AND_POST;
-extern ProcELFType ret_ptr_section_type; // NOTE: only updated if OPT_VERBOSE
-
 void pre_malloc(HeaptraceContext *ctx, uint64_t isize);
 void post_malloc(HeaptraceContext *ctx, uint64_t ptr);
 void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize);

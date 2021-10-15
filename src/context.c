@@ -3,7 +3,9 @@
 #include "context.h"
 
 HeaptraceContext *alloc_ctx() {
-    return (HeaptraceContext *)calloc(1, sizeof(HeaptraceContext));
+    HeaptraceContext *ctx = (HeaptraceContext *)calloc(1, sizeof(HeaptraceContext));
+    ctx->ret_ptr_section_type = PROCELF_TYPE_UNKNOWN;
+    return ctx;
 }
 
 void *free_ctx(HeaptraceContext *ctx) {

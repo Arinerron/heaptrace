@@ -25,6 +25,14 @@ typedef struct HeaptraceContext {
     int status; // waitpid
     int status16; // waitpid >> 16
 
+    char *between_pre_and_post;
+    ProcELFType ret_ptr_section_type;
+
+    size_t h_size;
+    uint64_t h_ptr;
+    uint64_t h_oid;
+    Chunk *h_orig_chunk;
+
     // mid-analysis settings
     uint64_t target_at_entry; // auxiliary vector AT_ENTRY
 
