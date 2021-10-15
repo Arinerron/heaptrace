@@ -2,6 +2,7 @@
 #include "heap.h"
 #include "logging.h"
 #include "debugger.h"
+#include "handlers.h"
 
 uint64_t MALLOC_COUNT = 0;
 uint64_t CALLOC_COUNT = 0;
@@ -23,6 +24,11 @@ void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
 
     // now actually break if necessary
     if (should_break) {
+        debug2("\n");
+        debug("decided to break @ check_should_break(oid=%d, break_at=%d, prepend_newline=%d)\n", oid, break_at, prepend_newline);
+        debug("\tBREAK_AT=%d, BREAK_AFTER=%d, BREAK_MAIN=%d, BREAK_SIGSEGV=%d\n", BREAK_AT, BREAK_AFTER, BREAK_MAIN, BREAK_SIGSEGV);
+        debug("\tBETWEEN_PRE_AND_POST=%d\n", BETWEEN_PRE_AND_POST);
+
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");
         log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "/usr/bin/gdb -p %d\n" COLOR_RESET, CHILD_PID);
