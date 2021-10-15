@@ -130,7 +130,7 @@ void pre_free(uint64_t iptr) {
     ptr = iptr;
 
     FREE_COUNT++;
-    uint64_t oid = get_oid();
+    oid = get_oid();
 
     Chunk *chunk = find_chunk(ptr);
 
@@ -185,7 +185,7 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
     size = isize * nmemb;
 
     if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
-    uint64_t oid = get_oid();
+    oid = get_oid();
 
     orig_chunk = alloc_chunk(ptr);
 
