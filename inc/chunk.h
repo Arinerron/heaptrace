@@ -1,4 +1,9 @@
+#ifndef CHUNK_H
+#define CHUNK_H
+
 #include "logging.h"
+
+typedef struct HeaptraceContext HeaptraceContext;
 
 typedef struct Chunk {
     int state;
@@ -11,5 +16,7 @@ typedef struct Chunk {
 } Chunk;
 
 
-Chunk *alloc_chunk(uint64_t ptr);
-Chunk *find_chunk(uint64_t ptr);
+Chunk *alloc_chunk(HeaptraceContext *ctx, uint64_t ptr);
+Chunk *find_chunk(HeaptraceContext *ctx, uint64_t ptr); // TODO: deprecate this function
+
+#endif

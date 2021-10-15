@@ -5,7 +5,9 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name) {
+int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
+    char **interp_name = &ctx->target_interp_name;
+    char *fname = ctx->target_path;
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
         fatal("failed to open target.\n");

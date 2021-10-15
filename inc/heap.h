@@ -12,6 +12,7 @@
 #include <signal.h>
 
 #include "chunk.h"
+#include "context.h"
 
 #define STATE_UNUSED 0
 #define STATE_MALLOC 1
@@ -41,6 +42,6 @@ extern uint64_t BREAK_AFTER;
 extern int BREAK_MAIN;
 extern int BREAK_SIGSEGV;
 
-void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline);
+void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, int prepend_newline);
 uint64_t get_oid();
 void show_stats();

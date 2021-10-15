@@ -32,25 +32,25 @@ static inline char *_get_source_section() {
 }
 
 
-void pre_calloc(uint64_t nmemb, uint64_t isize) {
+void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     size = (size_t)isize * (size_t)nmemb;
     
     CALLOC_COUNT++;
     oid = get_oid();
 
     log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", oid, (size_t)nmemb, (size_t)isize);
-    check_should_break(oid, BREAK_AT, 1);
+    check_should_break(ctx, oid, BREAK_AT, 1);
 
     BETWEEN_PRE_AND_POST = "calloc";
 }
 
 
-void post_calloc(uint64_t ptr) {
+void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
     verbose_heap("%s", _get_source_section());
 
     // store meta info
-    Chunk *chunk = alloc_chunk(ptr);
+    Chunk *chunk = alloc_chunk(ctx, ptr);
 
     if (chunk->state == STATE_MALLOC) {
         warn_heap("calloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
@@ -75,29 +75,29 @@ void post_calloc(uint64_t ptr) {
 
     BETWEEN_PRE_AND_POST = 0;
 
-    check_should_break(oid, BREAK_AFTER, 1);
+    check_should_break(ctx, oid, BREAK_AFTER, 1);
 }
 
 
-void pre_malloc(uint64_t isize) {
+void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
     size = (size_t)isize;
     
     MALLOC_COUNT++;
     oid = get_oid();
 
     log_heap("... " SYM ": malloc(" SZ ")\t\t", oid, size);
-    check_should_break(oid, BREAK_AT, 1);
+    check_should_break(ctx, oid, BREAK_AT, 1);
 
     BETWEEN_PRE_AND_POST = "malloc";
 }
 
 
-void post_malloc(uint64_t ptr) {
+void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
     verbose_heap("%s", _get_source_section());
 
     // store meta info
-    Chunk *chunk = alloc_chunk(ptr);
+    Chunk *chunk = alloc_chunk(ctx, ptr);
 
     if (chunk->state == STATE_MALLOC) {
         warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
@@ -122,17 +122,17 @@ void post_malloc(uint64_t ptr) {
 
     BETWEEN_PRE_AND_POST = 0;
 
-    check_should_break(oid, BREAK_AFTER, 1);
+    check_should_break(ctx, oid, BREAK_AFTER, 1);
 }
 
 
-void pre_free(uint64_t iptr) {
+void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
     ptr = iptr;
 
     FREE_COUNT++;
     oid = get_oid();
 
-    Chunk *chunk = find_chunk(ptr);
+    Chunk *chunk = find_chunk(ctx, ptr);
 
     log_heap("... " SYM ": free(", oid);
     if (chunk && chunk->ops[STATE_MALLOC]) {
@@ -165,19 +165,19 @@ void pre_free(uint64_t iptr) {
 
     BETWEEN_PRE_AND_POST = "free";
 
-    check_should_break(oid, BREAK_AT, 0);
+    check_should_break(ctx, oid, BREAK_AT, 0);
 }
 
 
-void post_free(uint64_t retval) {
+void post_free(HeaptraceContext *ctx, uint64_t retval) {
     BETWEEN_PRE_AND_POST = 0;
     verbose_heap("%s", _get_source_section());
-    check_should_break(oid, BREAK_AFTER, 1);
+    check_should_break(ctx, oid, BREAK_AFTER, 1);
 }
 
 
 // _type=1 means "realloc", _type=2 means "reallocarray"
-void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
+void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
     char *_name = "realloc";
     if (_type == 2) _name = "reallocarray";
 
@@ -187,7 +187,7 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
     if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
     oid = get_oid();
 
-    orig_chunk = alloc_chunk(ptr);
+    orig_chunk = alloc_chunk(ctx, ptr);
 
     log_heap("... " SYM ": %s(", oid, _name);
     if (orig_chunk && orig_chunk->ops[STATE_MALLOC]) {
@@ -216,22 +216,22 @@ void _pre_realloc(int _type, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
 
     BETWEEN_PRE_AND_POST = _name;
 
-    check_should_break(oid, BREAK_AT, 1);
+    check_should_break(ctx, oid, BREAK_AT, 1);
 }
 
 
-void pre_realloc(uint64_t iptr, uint64_t isize) {
-    _pre_realloc(1, iptr, 1, isize);
+void pre_realloc(HeaptraceContext *ctx, uint64_t iptr, uint64_t isize) {
+    _pre_realloc(ctx, 1, iptr, 1, isize);
 }
 
 
-void pre_reallocarray(uint64_t iptr, uint64_t nmemb, uint64_t isize) {
-    _pre_realloc(2, iptr, nmemb, isize);
+void pre_reallocarray(HeaptraceContext *ctx, uint64_t iptr, uint64_t nmemb, uint64_t isize) {
+    _pre_realloc(ctx, 2, iptr, nmemb, isize);
 }
 
 
 // _type=1 means "realloc", _type=2 means "reallocarray"
-static inline void _post_realloc(int _type, uint64_t new_ptr) {
+static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_ptr) {
     char *_name = "realloc";
     if (_type == 2) _name = "reallocarray";
 
@@ -243,7 +243,7 @@ static inline void _post_realloc(int _type, uint64_t new_ptr) {
     verbose_heap("%s", _get_source_section());
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
-    Chunk *new_chunk = alloc_chunk(new_ptr);
+    Chunk *new_chunk = alloc_chunk(ctx, new_ptr);
 
     if (ptr == new_ptr) {
         // the chunk shrank
@@ -261,7 +261,7 @@ static inline void _post_realloc(int _type, uint64_t new_ptr) {
         int _override_free = 1; // this is because it doesn't free if reallocarray's size calc overflows
         if (new_ptr) {
             // the chunk moved
-            new_chunk = alloc_chunk(new_ptr);
+            new_chunk = alloc_chunk(ctx, new_ptr);
             if (new_chunk->state == STATE_MALLOC) {
                 warn_heap("%s returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption", _name);
                 warn_heap2("first allocated in operation " SYM, new_chunk->ops[STATE_MALLOC]);
@@ -301,14 +301,14 @@ static inline void _post_realloc(int _type, uint64_t new_ptr) {
 
     BETWEEN_PRE_AND_POST = 0;
 
-    check_should_break(oid, BREAK_AFTER, 1);
+    check_should_break(ctx, oid, BREAK_AFTER, 1);
 }
 
-void post_realloc(uint64_t new_ptr) {
-    _post_realloc(1, new_ptr);
+void post_realloc(HeaptraceContext *ctx, uint64_t new_ptr) {
+    _post_realloc(ctx, 1, new_ptr);
 }
 
 
-void post_reallocarray(uint64_t new_ptr) {
-    _post_realloc(2, new_ptr);
+void post_reallocarray(HeaptraceContext *ctx, uint64_t new_ptr) {
+    _post_realloc(ctx, 2, new_ptr);
 }

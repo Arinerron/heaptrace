@@ -12,18 +12,19 @@
 #include <signal.h>
 
 #include "proc.h"
+#include "context.h"
 
 extern char *BETWEEN_PRE_AND_POST;
 extern ProcELFType ret_ptr_section_type; // NOTE: only updated if OPT_VERBOSE
 
-void pre_malloc(uint64_t isize);
-void post_malloc(uint64_t ptr);
-void pre_calloc(uint64_t nmemb, uint64_t isize);
-void post_calloc(uint64_t ptr);
-void pre_free(uint64_t iptr);
-void post_free(uint64_t retval);
-void pre_realloc(uint64_t iptr, uint64_t isize);
-void post_realloc(uint64_t new_ptr);
-void pre_reallocarray(uint64_t iptr, uint64_t nmemb, uint64_t isize);
-void post_reallocarray(uint64_t new_ptr);
+void pre_malloc(HeaptraceContext *ctx, uint64_t isize);
+void post_malloc(HeaptraceContext *ctx, uint64_t ptr);
+void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize);
+void post_calloc(HeaptraceContext *ctx, uint64_t ptr);
+void pre_free(HeaptraceContext *ctx, uint64_t iptr);
+void post_free(HeaptraceContext *ctx, uint64_t retval);
+void pre_realloc(HeaptraceContext *ctx, uint64_t iptr, uint64_t isize);
+void post_realloc(HeaptraceContext *ctx, uint64_t new_ptr);
+void pre_reallocarray(HeaptraceContext *ctx, uint64_t iptr, uint64_t nmemb, uint64_t isize);
+void post_reallocarray(HeaptraceContext *ctx, uint64_t new_ptr);
 
