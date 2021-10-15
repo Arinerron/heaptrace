@@ -13,6 +13,8 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "context.h"
+
 #define SE_TYPE_UNRESOLVED 0
 #define SE_TYPE_STATIC 1
 #define SE_TYPE_DYNAMIC 2
@@ -25,5 +27,5 @@ typedef struct SymbolEntry {
     int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC, SE_TYPE_DYNAMIC_PLT
 } SymbolEntry;
 
-int lookup_symbols(char *fname, SymbolEntry **ses, char **interp_name);
+int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses);
 char *get_libc_path(char *interp_path, char *elf_path);

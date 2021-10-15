@@ -1,23 +1,23 @@
+#ifndef CHUNK_C
+#define CHUNK_C
+
 #include "chunk.h"
+#include "context.h"
 
-Chunk *bst_root;
-static void *_chunk_arr = 0;
-static size_t _chunk_arr_i = 0;
-static size_t _chunk_arr_sz = 1000;
+static const size_t CHUNK_ARR_SZ = 1000;
 
 
-static Chunk *_create_chunk() {
-    // alloc a new block
-    if (_chunk_arr_i == _chunk_arr_sz || !_chunk_arr) {
-        _chunk_arr_i = 0;
-        _chunk_arr = calloc(_chunk_arr_sz, sizeof(Chunk));
-        if (!_chunk_arr) {
+static Chunk *_create_chunk(HeaptraceContext *ctx) {
+    // alloc a new block if necessary
+    if (ctx->chunk_arr_i == CHUNK_ARR_SZ || !ctx->chunk_arr) {
+        ctx->chunk_arr_i = 0;
+        ctx->chunk_arr = calloc(CHUNK_ARR_SZ, sizeof(Chunk));
+        if (!CHUNK_ARR_SZ) {
             fatal("_create_chunk: calloc out of memory");
         }
     }
 
-    Chunk *chunk = (Chunk *)(_chunk_arr + (_chunk_arr_i * sizeof(Chunk)));
-    _chunk_arr_i++;
+    Chunk *chunk = &(((Chunk *)ctx->chunk_arr)[ctx->chunk_arr_i++]);
     return chunk;
 }
 
@@ -29,6 +29,7 @@ static Chunk *_create_chunk() {
  * 
  */
 static Chunk *_find_chunk(Chunk *root, uint64_t ptr, Chunk *set_chunk) {
+    if (!root) return 0;
     if (!set_chunk && root->ptr == ptr) return root;
 
     if (ptr <= root->ptr) {
@@ -57,25 +58,26 @@ static Chunk *_find_chunk(Chunk *root, uint64_t ptr, Chunk *set_chunk) {
 }
 
 
-Chunk *alloc_chunk(uint64_t ptr) {
-    Chunk *old_chunk = find_chunk(ptr);
+Chunk *alloc_chunk(HeaptraceContext *ctx, uint64_t ptr) {
+    Chunk *old_chunk = find_chunk(ctx, ptr);
     if (old_chunk) return old_chunk;
 
     // couldn't find it, create new one
-    Chunk *new_chunk = _create_chunk();
+    Chunk *new_chunk = _create_chunk(ctx);
     new_chunk->ptr = ptr;
 
-    if (!bst_root) {
-        bst_root = new_chunk;
+    if (!ctx->chunk_root) {
+        ctx->chunk_root = new_chunk;
         return new_chunk;
     } else {
-        _find_chunk(bst_root, ptr, new_chunk);
+        _find_chunk(ctx->chunk_root, ptr, new_chunk);
     }
 }
 
 
-Chunk *find_chunk(uint64_t ptr) {
+Chunk *find_chunk(HeaptraceContext *ctx, uint64_t ptr) {
     if (!ptr) return 0;
-    if (!bst_root) return 0;
-    return _find_chunk(bst_root, ptr, 0);
+    return _find_chunk(ctx->chunk_root, ptr, 0);
 }
+
+#endif
