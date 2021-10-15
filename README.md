@@ -30,6 +30,7 @@ $ make
 $ sudo make install
 ...
 $ heaptrace ./target
+$ heaptrace -- ./target -a -f3 # if you have arguments
 ```
 
 # Usage
@@ -37,7 +38,7 @@ $ heaptrace ./target
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] -- <target> [args...]
 
 -e <name=value>, --environ=<name=value>, --environment=<name=value>
                             Sets a single environmental variable. Useful for 
