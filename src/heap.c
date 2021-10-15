@@ -4,12 +4,6 @@
 #include "debugger.h"
 #include "handlers.h"
 
-uint64_t MALLOC_COUNT = 0;
-uint64_t CALLOC_COUNT = 0;
-uint64_t FREE_COUNT = 0;
-uint64_t REALLOC_COUNT = 0;
-uint64_t REALLOCARRAY_COUNT = 0;
-
 uint64_t BREAK_AT = 0;
 uint64_t BREAK_AFTER = 0;
 int BREAK_MAIN = 0;
@@ -18,7 +12,7 @@ int BREAK_SIGSEGV = 0;
 
 // see if it's time to pause
 // XXX: this function should be in debugger.c
-void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
+void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, int prepend_newline) {
     // try reading from params second
     int should_break = (break_at == oid);
 
@@ -27,19 +21,19 @@ void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
         debug2("\n");
         debug("decided to break @ check_should_break(oid=%d, break_at=%d, prepend_newline=%d)\n", oid, break_at, prepend_newline);
         debug("\tBREAK_AT=%d, BREAK_AFTER=%d, BREAK_MAIN=%d, BREAK_SIGSEGV=%d\n", BREAK_AT, BREAK_AFTER, BREAK_MAIN, BREAK_SIGSEGV);
-        debug("\tBETWEEN_PRE_AND_POST=%d\n", BETWEEN_PRE_AND_POST);
+        debug("\tBETWEEN_PRE_AND_POST=%d\n", ctx->between_pre_and_post);
 
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");
-        log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "/usr/bin/gdb -p %d\n" COLOR_RESET, CHILD_PID);
+        log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "/usr/bin/gdb -p %d\n" COLOR_RESET, ctx->pid);
         if (prepend_newline) log("    "); // XXX/HACK: see above
 
         // launch gdb
-        _remove_breakpoints(CHILD_PID, 1);
-        ptrace(PTRACE_DETACH, CHILD_PID, NULL, SIGSTOP);
+        _remove_breakpoints(ctx, 1);
+        ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGSTOP);
 
         char buf[10+1];
-        snprintf(buf, 10, "%d", CHILD_PID);
+        snprintf(buf, 10, "%d", ctx->pid);
         char *gdb_path = "/usr/bin/gdb";
         char *args[] = {gdb_path, "-p", buf, NULL};
         if (execv(args[0], args) == -1) {
@@ -51,14 +45,14 @@ void check_should_break(uint64_t oid, uint64_t break_at, int prepend_newline) {
 
 
 // returns the current operation ID
-uint64_t get_oid() {
-    uint64_t oid = MALLOC_COUNT + CALLOC_COUNT + FREE_COUNT + REALLOC_COUNT + REALLOCARRAY_COUNT;
+uint64_t get_oid(HeaptraceContext *ctx) {
+    uint64_t oid = ctx->malloc_count + ctx->calloc_count + ctx->free_count + ctx->realloc_count + ctx->reallocarray_count;
     ASSERT(oid < (uint64_t)0xFFFFFFFFFFFFFFF0LLU, "ran out of oids"); // avoid overflows
     return oid;
 }
 
 
-void show_stats() {
+void show_stats(HeaptraceContext *ctx) {
     uint64_t unfreed_sum = 0;
 
     /* // TODO: convert to BST code
@@ -81,11 +75,11 @@ void show_stats() {
 
     if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
     log(COLOR_LOG "Statistics:\n");
-    log("... total mallocs: " CNT "\n", MALLOC_COUNT);
-    log("... total callocs: " CNT "\n", CALLOC_COUNT);
-    log("... total frees: " CNT "\n", FREE_COUNT);
-    log("... total reallocs: " CNT "\n", REALLOC_COUNT);
-    log("... total reallocarrays: " CNT "\n" COLOR_RESET, REALLOCARRAY_COUNT);
+    log("... total mallocs: " CNT "\n", ctx->malloc_count);
+    log("... total callocs: " CNT "\n", ctx->calloc_count);
+    log("... total frees: " CNT "\n", ctx->free_count);
+    log("... total reallocs: " CNT "\n", ctx->realloc_count);
+    log("... total reallocarrays: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
 
     if (unfreed_sum) {
         log(COLOR_ERROR "... total bytes lost: " SZ_ERR "\n", SZ_ARG(unfreed_sum));

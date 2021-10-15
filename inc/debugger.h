@@ -13,6 +13,7 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "context.h"
 #include "breakpoint.h"
 #include "symbol.h"
 #include "proc.h"
@@ -23,16 +24,11 @@
 
 extern int OPT_FOLLOW_FORK;
 
-extern int CHILD_PID;
-extern uint64_t CHILD_LIBC_BASE;
+void _check_breakpoints(HeaptraceContext *ctx);
 
-static int should_map_syms;
-
-void _check_breakpoints(int pid, ProcMapsEntry *pme_head);
-
-static uint64_t _calc_offset(int pid, SymbolEntry *se, ProcMapsEntry *pme_head);
-void evaluate_funcid(Breakpoint **bps, int bpsc, char *fname, ProcMapsEntry *pme_head);
+static uint64_t _calc_offset(HeaptraceContext *ctx, SymbolEntry *se);
+void evaluate_funcid(HeaptraceContext *ctx, Breakpoint **bps);
 
 
-void end_debugger(int pid, int status, int should_detach);
-void start_debugger(char *chargv[]);
+void end_debugger(HeaptraceContext *ctx, int should_detach);
+void start_debugger(HeaptraceContext *ctx);

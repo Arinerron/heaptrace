@@ -138,11 +138,11 @@ int parse_args(int argc, char *argv[]) {
 }
 
 
-void evaluate_symbol_defs(Breakpoint **bps, int bpsc, ProcMapsEntry *pme_head) {
+void evaluate_symbol_defs(HeaptraceContext *ctx, Breakpoint **bps) {
     if (!strlen(symbol_defs_str)) return;
 
-    ProcMapsEntry *bin_pme = pme_walk(pme_head, PROCELF_TYPE_BINARY);
-    ProcMapsEntry *libc_pme = pme_walk(pme_head, PROCELF_TYPE_LIBC);
+    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+    ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     ASSERT(bin_pme, "Target binary is missing from process mappings (!bin_pme in evaluate_symbol_defs). Please report this!");
     uint64_t bin_base = 0;
     uint64_t libc_base = 0;
@@ -216,8 +216,10 @@ parsevalue:;
                     debug("parsed arg sym \"%s\" to %p\n", sym_name, sym_val);
                     int _resolved = 0;
                     // terminate cur var setting
-                    for (int k = 0; k < bpsc; k++) {
-                        Breakpoint *bp = bps[k];
+                    int k = 0;
+                    while (1) {
+                        Breakpoint *bp = bps[k++];
+                        if (!bp) break;
                         //printf("sym_name: %s, bp_name: %s\n", sym_name, bp->name);
                         if (!strcmp(sym_name, bp->name)) {
                             if (!_resolved) {
