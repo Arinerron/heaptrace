@@ -4,12 +4,6 @@
 #include "debugger.h"
 #include "handlers.h"
 
-uint64_t MALLOC_COUNT = 0;
-uint64_t CALLOC_COUNT = 0;
-uint64_t FREE_COUNT = 0;
-uint64_t REALLOC_COUNT = 0;
-uint64_t REALLOCARRAY_COUNT = 0;
-
 uint64_t BREAK_AT = 0;
 uint64_t BREAK_AFTER = 0;
 int BREAK_MAIN = 0;
@@ -51,14 +45,14 @@ void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, 
 
 
 // returns the current operation ID
-uint64_t get_oid() {
-    uint64_t oid = MALLOC_COUNT + CALLOC_COUNT + FREE_COUNT + REALLOC_COUNT + REALLOCARRAY_COUNT;
+uint64_t get_oid(HeaptraceContext *ctx) {
+    uint64_t oid = ctx->malloc_count + ctx->calloc_count + ctx->free_count + ctx->realloc_count + ctx->reallocarray_count;
     ASSERT(oid < (uint64_t)0xFFFFFFFFFFFFFFF0LLU, "ran out of oids"); // avoid overflows
     return oid;
 }
 
 
-void show_stats() {
+void show_stats(HeaptraceContext *ctx) {
     uint64_t unfreed_sum = 0;
 
     /* // TODO: convert to BST code
@@ -81,11 +75,11 @@ void show_stats() {
 
     if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
     log(COLOR_LOG "Statistics:\n");
-    log("... total mallocs: " CNT "\n", MALLOC_COUNT);
-    log("... total callocs: " CNT "\n", CALLOC_COUNT);
-    log("... total frees: " CNT "\n", FREE_COUNT);
-    log("... total reallocs: " CNT "\n", REALLOC_COUNT);
-    log("... total reallocarrays: " CNT "\n" COLOR_RESET, REALLOCARRAY_COUNT);
+    log("... total mallocs: " CNT "\n", ctx->malloc_count);
+    log("... total callocs: " CNT "\n", ctx->calloc_count);
+    log("... total frees: " CNT "\n", ctx->free_count);
+    log("... total reallocs: " CNT "\n", ctx->realloc_count);
+    log("... total reallocarrays: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
 
     if (unfreed_sum) {
         log(COLOR_ERROR "... total bytes lost: " SZ_ERR "\n", SZ_ARG(unfreed_sum));

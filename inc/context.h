@@ -17,13 +17,14 @@ typedef struct HeaptraceContext {
 
     // pre-analysis settings
     char *target_interp_name;
-    int target_is_stripped;
-    int target_is_dynamic;
+    uint target_is_stripped;
+    uint target_is_dynamic;
     
     // runtime settings
     uint pid;
     int status; // waitpid
     int status16; // waitpid >> 16
+    uint should_map_syms;
 
     char *between_pre_and_post;
     ProcELFType ret_ptr_section_type;
@@ -32,6 +33,12 @@ typedef struct HeaptraceContext {
     uint64_t h_ptr;
     uint64_t h_oid;
     Chunk *h_orig_chunk;
+
+    uint64_t malloc_count;
+    uint64_t calloc_count;
+    uint64_t free_count;
+    uint64_t realloc_count;
+    uint64_t reallocarray_count;
 
     // mid-analysis settings
     uint64_t target_at_entry; // auxiliary vector AT_ENTRY

@@ -25,8 +25,8 @@ static inline char *_get_source_section(HeaptraceContext *ctx) {
 void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     ctx->h_size = (size_t)isize * (size_t)nmemb;
     
-    CALLOC_COUNT++;
-    ctx->h_oid = get_oid();
+    ctx->calloc_count++;
+    ctx->h_oid = get_oid(ctx);
 
     log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", ctx->h_oid, (size_t)nmemb, (size_t)isize);
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
@@ -72,8 +72,8 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
 void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
     ctx->h_size = (size_t)isize;
     
-    MALLOC_COUNT++;
-    ctx->h_oid = get_oid();
+    ctx->malloc_count++;
+    ctx->h_oid = get_oid(ctx);
 
     log_heap("... " SYM ": malloc(" SZ ")\t\t", ctx->h_oid, ctx->h_size);
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
@@ -119,8 +119,8 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
 void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
     ctx->h_ptr = iptr;
 
-    FREE_COUNT++;
-    ctx->h_oid = get_oid();
+    ctx->free_count++;
+    ctx->h_oid = get_oid(ctx);
 
     Chunk *chunk = find_chunk(ctx, ctx->h_ptr);
 
@@ -174,8 +174,8 @@ void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmem
     ctx->h_ptr = iptr;
     ctx->h_size = isize * nmemb;
 
-    if (_type == 1) REALLOC_COUNT++; else if (_type == 2) REALLOCARRAY_COUNT++;
-    ctx->h_oid = get_oid();
+    if (_type == 1) ctx->realloc_count++; else if (_type == 2) ctx->reallocarray_count++;
+    ctx->h_oid = get_oid(ctx);
 
     ctx->h_orig_chunk = alloc_chunk(ctx, ctx->h_ptr);
 

@@ -16,7 +16,6 @@
 #include "funcid.h"
 #include "proc.h"
 
-int CHILD_PID = 0;
 static int in_breakpoint = 0;
 
 int OPT_FOLLOW_FORK = 0;
@@ -190,12 +189,12 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
-        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid());
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
         log("." COLOR_RESET " ", code);
     } else if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
         log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
-        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid());
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
         log("." COLOR_RESET " ", code);
         _was_sigsegv = 1;
     }
@@ -205,11 +204,11 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     }
 
     log("\n");
-    show_stats();
+    show_stats(ctx);
 
     if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
-    _remove_breakpoints(ctx, 1);
-    if (should_detach) ptrace(PTRACE_DETACH, CHILD_PID, NULL, SIGCONT);
+    if (should_detach) ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+    free_ctx(ctx);
     exit(0);
 }
 
@@ -234,24 +233,18 @@ char *get_libc_version(char *libc_path) {
     *_period = '\x00';
 
     char *version = strdup(_version);
-
     free(string);
-
     return version;
 }
 
 
-uint64_t CHILD_LIBC_BASE = 0;
-
 // this is triggered by a breakpoint. The address to _start (entry) is stored 
 // in auxv and fetched on the first run.
 void _pre_entry(HeaptraceContext *ctx) {
-    should_map_syms = 1;
+    ctx->should_map_syms = 1;
     check_should_break(ctx, 1, BREAK_MAIN, 0);
 }
 
-
-static int should_map_syms = 0;
 
 void start_debugger(HeaptraceContext *ctx) {
     SymbolEntry *se_malloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
@@ -344,11 +337,10 @@ void start_debugger(HeaptraceContext *ctx) {
         ProcMapsEntry *pme_head;
 
         int status;
-        //should_map_syms = !ctx->target_is_dynamic;
-        should_map_syms = 0;
+        //ctx->should_map_syms = !ctx->target_is_dynamic;
+        ctx->should_map_syms = 0;
         int first_signal = 1; // XXX: this is confusing. refactor later.
         ctx->pid = child;
-        CHILD_PID = child; // TODO: deprecate
         debug("Started target process in PID %d\n", child);
 
         while(waitpid(child, &status, 0)) {
@@ -396,7 +388,7 @@ void start_debugger(HeaptraceContext *ctx) {
                     log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%d). Following fork...\n\n", child, newpid);
                     ptrace(PTRACE_DETACH, child, NULL, SIGCONT);
                     child = newpid;
-                    CHILD_PID = newpid;
+                    ctx->pid = newpid;
                     ptrace(PTRACE_SETOPTIONS, newpid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
                     //ptrace(PTRACE_CONT, newpid, 0L, 0L);
                 } else {
@@ -414,8 +406,8 @@ void start_debugger(HeaptraceContext *ctx) {
                 debug("warning: hit unknown status code %d\n", status);
             }
 
-            if (should_map_syms) {
-                should_map_syms = 0;
+            if (ctx->should_map_syms) {
+                ctx->should_map_syms = 0;
 
                 // parse /proc/pid/maps
                 pme_head = build_pme_list(child);
@@ -481,6 +473,5 @@ void start_debugger(HeaptraceContext *ctx) {
         }
 
         warn("while loop exited. Please report this. Status: %d, exit status: %d\n", status, WEXITSTATUS(status));
-        free_ctx(ctx);
     }
 }
