@@ -6,6 +6,7 @@
 
 #include "proc.h"
 #include "chunk.h"
+#include "breakpoint.h"
 
 typedef struct Chunk Chunk;
 
@@ -36,6 +37,9 @@ typedef struct HeaptraceContext {
     Chunk *chunk_root;
     void *chunk_arr;
     size_t chunk_arr_i;
+
+    // breakpoints storage globals
+    Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 } HeaptraceContext;
 
 void *free_ctx(HeaptraceContext *ctx);

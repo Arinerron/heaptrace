@@ -13,6 +13,7 @@
 #include <elf.h>
 #include <errno.h>
 
+#define BREAKPOINTS_COUNT 16
 #include "context.h"
 
 #ifndef BREAKPOINT_H
@@ -29,9 +30,6 @@ typedef struct Breakpoint {
     int _is_inside;
     void *_bp;
 } Breakpoint;
-
-#define BREAKPOINTS_COUNT 16
-extern Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 
 void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp);
 void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int should_break);

@@ -29,7 +29,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
     int _was_bp = 0;
 
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        Breakpoint *bp = breakpoints[i];
+        Breakpoint *bp = ctx->breakpoints[i];
         if (bp) {
             if (bp->addr == reg_rip) { // hit the breakpoint
                 _was_bp = 1;

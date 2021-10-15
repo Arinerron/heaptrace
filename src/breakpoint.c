@@ -1,7 +1,6 @@
 #include "breakpoint.h"
 #include "logging.h"
 
-Breakpoint *breakpoints[BREAKPOINTS_COUNT] = {0};
 
 void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     uint64_t vaddr = bp->addr;
@@ -19,8 +18,8 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     bp->orig_data = orig_data;
     
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (!breakpoints[i]) {
-            breakpoints[i] = bp;
+        if (!ctx->breakpoints[i]) {
+            ctx->breakpoints[i] = bp;
             errno = 0;
             ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
@@ -37,8 +36,8 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
 // TODO: convert into linked list
 void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int should_free) {
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (breakpoints[i] == bp) {
-            breakpoints[i] = 0;
+        if (ctx->breakpoints[i] == bp) {
+            ctx->breakpoints[i] = 0;
         }
     }
     
@@ -51,8 +50,8 @@ void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int should_free) 
 void _remove_breakpoints(HeaptraceContext *ctx, int should_free) {
     debug("removing all breakpoints...\n");
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (breakpoints[i]) {
-            _remove_breakpoint(ctx, breakpoints[i], should_free);
+        if (ctx->breakpoints[i]) {
+            _remove_breakpoint(ctx, ctx->breakpoints[i], should_free);
         }
     }
 }

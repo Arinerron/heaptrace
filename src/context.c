@@ -7,6 +7,7 @@ HeaptraceContext *alloc_ctx() {
 }
 
 void *free_ctx(HeaptraceContext *ctx) {
+    _remove_breakpoints(ctx, 1);
     free_pme_list(ctx->pme_head);
     free(ctx->libc_path);
     free(ctx->libc_version);
