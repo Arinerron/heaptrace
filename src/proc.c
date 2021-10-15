@@ -96,6 +96,7 @@ ProcMapsEntry *build_pme_list(int pid) {
     }
 
     fclose(f);
+    free(cur_fname);
     free(mapspath);
     free(fname);
 
