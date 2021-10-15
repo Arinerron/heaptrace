@@ -29,8 +29,6 @@
 #define MAX_META_SIZE 8*8388600 // 64 MB
 #define MAX_CHUNKS MAX_META_SIZE / sizeof(Chunk)
 
-static int chunks_initialized;
-
 extern uint64_t BREAK_AT;
 extern uint64_t BREAK_AFTER;
 extern int BREAK_MAIN;
