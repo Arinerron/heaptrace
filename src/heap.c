@@ -9,6 +9,8 @@ uint64_t BREAK_AFTER = 0;
 int BREAK_MAIN = 0;
 int BREAK_SIGSEGV = 0;
 
+char *OPT_GDB_PATH = "/usr/bin/gdb";
+
 
 // see if it's time to pause
 // XXX: this function should be in debugger.c
@@ -25,7 +27,7 @@ void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, 
 
         if (prepend_newline) log("\n"); // XXX: this hack is because malloc/realloc need a newline before paused msg
         log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");
-        log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "/usr/bin/gdb -p %d\n" COLOR_RESET, ctx->pid);
+        log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "%s -p %d\n" COLOR_RESET, OPT_GDB_PATH, ctx->pid);
         if (prepend_newline) log("    "); // XXX/HACK: see above
 
         // launch gdb
@@ -34,8 +36,7 @@ void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, 
 
         char buf[10+1];
         snprintf(buf, 10, "%d", ctx->pid);
-        char *gdb_path = "/usr/bin/gdb";
-        char *args[] = {gdb_path, "-p", buf, NULL};
+        char *args[] = {OPT_GDB_PATH, "-p", buf, NULL};
         if (execv(args[0], args) == -1) {
             ASSERT(0, "failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
         }

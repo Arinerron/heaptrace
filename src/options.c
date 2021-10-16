@@ -31,6 +31,8 @@ static struct option long_options[] = {
     {"follow-fork", no_argument, NULL, 'F'},
     {"follow", no_argument, NULL, 'F'},
 
+    {"gdb-path", no_argument, NULL, 'G'},
+
     {"output", required_argument, NULL, 'o'},
 
     {NULL, 0, NULL, 0}
@@ -38,7 +40,7 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
     exit(EXIT_FAILURE);
 }
 
@@ -67,7 +69,7 @@ int parse_args(int argc, char *argv[]) {
     int opt;
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:G:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v': {
                 OPT_VERBOSE = 1;
@@ -109,6 +111,11 @@ int parse_args(int argc, char *argv[]) {
 
             case 'F': {
                 OPT_FOLLOW_FORK = 1;
+                break;
+            }
+
+            case 'G': {
+                OPT_GDB_PATH = strdup(optarg);
                 break;
             }
 
