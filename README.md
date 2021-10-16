@@ -38,7 +38,8 @@ $ heaptrace -- ./target -a -f3 # if you have arguments
 You can specify arguments to heaptrace before specifying the binary name:
 
 ```
-Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-o/--output <filename>] -- <target> [args...]
+Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]
+
 
 -e <name=value>, --environ=<name=value>, --environment=<name=value>
                             Sets a single environmental variable. Useful for 
@@ -46,12 +47,14 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/
                             LD_PRELOAD=./libc.so.6 without having them affect 
                             heaptrace's runtime configuration.
 
+
 -s <sym_defs>, --symbols=<sym_defs>
                             Override the values heaptrace detects for the 
                             malloc/calloc/free/realloc/reallocarray symbols. 
                             Useful if heaptrace fails to automatically 
                             identify heap functions in a stripped binary. See 
                             the wiki for more info.
+
 
 -b <number>, --break=<number>, --break-at=<number>
                             Send SIGSTOP to the process at heap operation 
@@ -65,10 +68,12 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/
                             the entry point to the binary (the binary's 
                             auxiliary vector).
 
+
 -B <number>, --break-after=<number>
                             Similar to `--break`. Replaces the tracer 
                             process with gdb, but only after the heap function 
                             returns.
+
 
 -F, --follow-fork, --follow
                             Tells heaptrace to detach the parent and follow 
@@ -78,8 +83,14 @@ Usage: heaptrace [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/
                             The default behavior is to detatch the child and 
                             only trace the parent.
 
+
+-G, --gdb-path <path>       Tells heaptrace to use the path to gdb specified 
+                            in `path` instead of /usr/bin/gdb (default)
+
+
 -o <file>, --output=<file>  Write the heaptrace output to `file` instead of 
                             /dev/stderr (which is the default output path).
+
 
 -v, --verbose               Print verbose information such as line numbers in
                             source code given the required debugging info is
