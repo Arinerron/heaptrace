@@ -116,36 +116,91 @@ void _check_breakpoints(HeaptraceContext *ctx) {
 }
 
 
-static uint64_t calculate_bp_addr(HeaptraceContext *ctx, Breakpoint *bp) {
-    SymbolEntry *target_se = find_se_name(ctx->target_se_head, bp->name);
-    ASSERT(target_se, "calculate_bp_addr: target_se missing for name %s", bp->name);
-
+static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
-    ASSERT(bin_pme, "calculate_bp_addr: target binary is missing from process mappings (!bin_pme). Please report this!");
+    ASSERT(bin_pme, "calculate_bp_addrs: target binary is missing from process mappings (!bin_pme). Please report this!");
 
-    uint64_t addr = 0;
+    // if glibc exists, lookup symbols
+    ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
+    if (libc_pme) {
+        ctx->libc_path = libc_pme->name;
 
-    if (target_se->type == SE_TYPE_STATIC) {
-        addr = bin_pme->base + target_se->offset;
-    } else if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
-        ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
-        if (!libc_pme) return 0;
-
-        uint64_t got_ptr = bin_pme->base + target_se->offset;
-        uint64_t got_val = ptrace(PTRACE_PEEKDATA, ctx->pid, got_ptr, NULL);
-        debug(". peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, target_se->name, target_se->type);
-
-        // check if this is in the PLT or if it's resolved to libc
-        if (target_se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
-            // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
-            // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
-            got_val -= (uint64_t)0x6;
+        // prefix all se_names with "__libc_"
+        int i = 0;
+        int arr_len = 10;
+        char **arr = malloc(sizeof(char *) * arr_len);
+        while (1) {
+            if (!ctx->se_names[i]) break;
+            if (!arr || i >= arr_len) {
+                arr_len *= 2;
+                arr = (char **)(realloc(arr, sizeof(char *) * arr_len));
+            }
+            size_t str1_len = 7; // strlen("__libc_");
+            size_t str2_len = strlen(ctx->se_names[i]);
+            char *se_name = malloc(str1_len + str2_len + 1);
+            memcpy(se_name, "__libc_", str1_len);
+            memcpy(se_name + str1_len, ctx->se_names[i], str2_len + 1);
+            arr[i] = se_name;
+            i++;
         }
-
-        addr = got_val;
+        arr[i] = NULL;
+        ctx->libc_se_head = lookup_symbols(ctx, ctx->libc_path, arr);
+        
+        // free temp sym array
+        i = 0;
+        char *buf;
+        while ((buf = arr[i++]), buf) free(buf);
+        free(arr);
     }
 
-    bp->addr = addr;
+    int i = 0;
+    Breakpoint *bp;
+    while ((bp = bps[i++]), bp) {
+        SymbolEntry *target_se = find_se_name(ctx->target_se_head, bp->name);
+        ASSERT(target_se, "calculate_bp_addrs: target_se missing for name %s", bp->name);
+
+        // create __libc_ version
+        size_t str1_len = 7; // strlen("__libc__");
+        size_t str2_len = strlen(bp->name);
+        char *se_libc_name = malloc(str1_len + str2_len + 1);
+        memcpy(se_libc_name, "__libc_", str1_len);
+        memcpy(se_libc_name + str1_len, bp->name, str2_len + 1);
+        SymbolEntry *libc_se = find_se_name(ctx->libc_se_head, se_libc_name);
+        free(se_libc_name);
+        if (libc_se) {
+            libc_se->offset += libc_se->_sub_offset; // XXX: this is a stopgap solution for libc. libc is setting a random load addr of 0x40 which is throwing the offset off.
+            //debug("libc %s: %s 0x%x (type=%d)\n", ctx->libc_path, libc_se->name, libc_se->offset, libc_se->type);
+        }
+
+        uint64_t addr = 0;
+
+        if (target_se->type == SE_TYPE_STATIC) {
+            addr = bin_pme->base + target_se->offset;
+            debug(". used static addr %p\n", addr);
+        } else {
+            if (ctx->target_is_dynamic && libc_pme && libc_se && libc_se->offset) {
+                addr = libc_pme->base + libc_se->offset;
+                debug(". used dynamic libc addr %p\n", addr);
+            } else if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
+                if (libc_pme) {
+                    uint64_t got_ptr = bin_pme->base + target_se->offset;
+                    uint64_t got_val = ptrace(PTRACE_PEEKDATA, ctx->pid, got_ptr, NULL);
+                    debug(". used got addr. peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, target_se->name, target_se->type);
+
+                    // check if this is in the PLT or if it's resolved to libc
+                    if (target_se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
+                        // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
+                        // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
+                        got_val -= (uint64_t)0x6;
+                    }
+
+                    addr = got_val;
+                }
+            }
+        }
+
+        bp->addr = addr;
+    }
 }
 
 
@@ -269,13 +324,14 @@ void start_debugger(HeaptraceContext *ctx) {
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
     Breakpoint *bps[breakpoint_defs_c + 1];
     char *se_names[breakpoint_defs_c + 1];
+    ctx->se_names = se_names;
 
     bps[breakpoint_defs_c] = NULL;
-    se_names[breakpoint_defs_c] = NULL;
+    ctx->se_names[breakpoint_defs_c] = NULL;
 
     Breakpoint *bp;
     for (int i = 0; i < breakpoint_defs_c; i++) {
-        se_names[i] = breakpoint_defs[i].name;
+        ctx->se_names[i] = breakpoint_defs[i].name;
         bp = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
         bp->name = breakpoint_defs[i].name;
         bp->pre_handler = breakpoint_defs[i].pre_handler;
@@ -285,7 +341,7 @@ void start_debugger(HeaptraceContext *ctx) {
     }
     
     debug("Looking up symbols...\n");
-    ctx->target_se_head = lookup_symbols(ctx, se_names);
+    ctx->target_se_head = lookup_symbols(ctx, ctx->target_path, ctx->se_names);
 
     if (ctx->target_interp_name) {
         debug("Using interpreter \"%s\".\n", ctx->target_interp_name);
@@ -442,13 +498,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 }
 
                 // now that we know the base addresses, calculate offsets
-                int k = 0;
-                Breakpoint *bp;
-                while (1) {
-                    bp = bps[k++];
-                    if (!bp) break;
-                    calculate_bp_addr(ctx, bp);
-                }
+                calculate_bp_addrs(ctx, bps);
 
                 // final attempts to get symbol information (funcid + parse --symbol)
                 if (ctx->target_is_stripped) evaluate_funcid(ctx, bps);
@@ -456,7 +506,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 verbose("\n");
 
                 // install breakpoints
-                k = 0;
+                int k = 0;
                 while (1) {
                     bp = bps[k++];
                     if (!bp) break;

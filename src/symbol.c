@@ -5,7 +5,7 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]) {
+SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
     // init list of symbolentries
     SymbolEntry *se_head = 0;
     SymbolEntry *cur_se = 0;
@@ -25,7 +25,6 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]) {
     if (!se_head) return 0;
 
     char **interp_name = &ctx->target_interp_name;
-    char *fname = ctx->target_path;
     
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
@@ -271,7 +270,9 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]) {
                     if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
                         debug("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
                         cse->type = SE_TYPE_STATIC;
+                        //cse->offset = (uint64_t)(sym.st_value);
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;
+                        cse->_sub_offset = load_addr; // XXX: for some reason libc has a load addr of 0x40 that's throwing stuff off. This is a stopgap solution for that.
                         cse->section = sym.st_shndx;
                     }
                     cse = cse->_next;
@@ -316,6 +317,7 @@ SymbolEntry *find_se_name(SymbolEntry *se_head, char *name) {
         }
         cse = cse->_next;
     }
+    return NULL;
 }
 
 

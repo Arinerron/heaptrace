@@ -18,7 +18,9 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     bp->orig_data = orig_data;
     
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (!ctx->breakpoints[i]) {
+        if (ctx->breakpoints[i]) {
+            ASSERT(ctx->breakpoints[i]->addr != bp->addr, "cannot add two breakpoints with the same address (breakpoints[i] = %s @ %p, bp = %s @ %p)", ctx->breakpoints[i]->name, ctx->breakpoints[i]->addr, bp->name, bp->addr)
+        } else {
             ctx->breakpoints[i] = bp;
             errno = 0;
             ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));

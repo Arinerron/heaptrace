@@ -29,10 +29,11 @@ typedef struct SymbolEntry {
     int section;
     int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC, SE_TYPE_DYNAMIC_PLT
 
+    int64_t _sub_offset;
     struct SymbolEntry *_next;
 } SymbolEntry;
 
-SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]);
+SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]);
 SymbolEntry *any_se_type(SymbolEntry *se_head, int type);
 int all_se_type(SymbolEntry *se_head, int type);
 SymbolEntry *find_se_name(SymbolEntry *se_head, char *name);

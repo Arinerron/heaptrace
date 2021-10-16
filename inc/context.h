@@ -16,6 +16,7 @@ typedef struct HeaptraceContext {
     // init settings
     char *target_path;
     char **target_argv;
+    char **se_names;
     SymbolEntry *target_se_head;
 
     // pre-analysis settings
@@ -23,6 +24,8 @@ typedef struct HeaptraceContext {
     uint target_is_stripped;
     uint target_is_dynamic;
     Breakpoint *bp_entry;
+
+    SymbolEntry *libc_se_head;
     
     // runtime settings
     uint pid;
