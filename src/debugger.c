@@ -447,7 +447,6 @@ void start_debugger(HeaptraceContext *ctx) {
                 while (1) {
                     bp = bps[k++];
                     if (!bp) break;
-                    install_breakpoint(ctx, bp);
                     calculate_bp_addr(ctx, bp);
                 }
 
