@@ -151,7 +151,25 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
         char *buf;
         while ((buf = arr[i++]), buf) free(buf);
         free(arr);
+
+        // remove "__libc_" prefix
+        SymbolEntry *cse = ctx->libc_se_head;
+        while (cse) {
+            char *old_name = cse->name;
+            cse->name = strdup(cse->name + 7); // 7 == strlen("__libc_")
+            if (!cse->offset) {
+                cse->type = SE_TYPE_UNRESOLVED;
+            }
+            free(old_name);
+            cse = cse->_next;
+        }
+        
+        // find function signatures in case it's stripped
+        ctx->libc_is_stripped = all_se_type(ctx->libc_se_head, SE_TYPE_UNRESOLVED); // XXX: doesn't rly work bceause they're resolved, just set to 0x40 (or ctx->_sub_offset)
+        evaluate_funcid(ctx->libc_path, ctx->libc_se_head);
     }
+
+    evaluate_funcid(ctx->target_path, ctx->target_se_head);
 
     int i = 0;
     Breakpoint *bp;
@@ -160,13 +178,7 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
         ASSERT(target_se, "calculate_bp_addrs: target_se missing for name %s", bp->name);
 
         // create __libc_ version
-        size_t str1_len = 7; // strlen("__libc__");
-        size_t str2_len = strlen(bp->name);
-        char *se_libc_name = malloc(str1_len + str2_len + 1);
-        memcpy(se_libc_name, "__libc_", str1_len);
-        memcpy(se_libc_name + str1_len, bp->name, str2_len + 1);
-        SymbolEntry *libc_se = find_se_name(ctx->libc_se_head, se_libc_name);
-        free(se_libc_name);
+        SymbolEntry *libc_se = find_se_name(ctx->libc_se_head, bp->name);
         if (libc_se) {
             libc_se->offset += libc_se->_sub_offset; // XXX: this is a stopgap solution for libc. libc is setting a random load addr of 0x40 which is throwing the offset off.
             //debug("libc %s: %s 0x%x (type=%d)\n", ctx->libc_path, libc_se->name, libc_se->offset, libc_se->type);
@@ -174,14 +186,17 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
 
         uint64_t addr = 0;
 
-        if (target_se->type == SE_TYPE_STATIC) {
+        if (ctx->target_is_dynamic && libc_pme && libc_se && libc_se->offset) {
+            // prioritize the libc symbols over target's symbols
+            addr = libc_pme->base + libc_se->offset;
+            debug(". used dynamic libc addr %p\n", addr);
+        } else if (target_se->type == SE_TYPE_STATIC) {
+            // static symbol in ELF
             addr = bin_pme->base + target_se->offset;
             debug(". used static addr %p\n", addr);
         } else {
-            if (ctx->target_is_dynamic && libc_pme && libc_se && libc_se->offset) {
-                addr = libc_pme->base + libc_se->offset;
-                debug(". used dynamic libc addr %p\n", addr);
-            } else if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
+            if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
+                // it's a GOT pointer
                 if (libc_pme) {
                     uint64_t got_ptr = bin_pme->base + target_se->offset;
                     uint64_t got_val = ptrace(PTRACE_PEEKDATA, ctx->pid, got_ptr, NULL);
@@ -205,30 +220,34 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
 
 
 // attempts to identify functions in stripped ELFs (bin_pme->base only, not libc)
-void evaluate_funcid(HeaptraceContext *ctx, Breakpoint **bps) {
-    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
-    ASSERT(bin_pme, "Target binary does not exist in process mappings (!bin_pme in evaluate_funcid). Please report this!");
-
+void evaluate_funcid(char *path, SymbolEntry *se_head) {
     int _printed_debug = 0;
-    FILE *f = fopen(ctx->target_path, "r");
+    FILE *f = fopen(path, "r");
     FunctionSignature *sigs = find_function_signatures(f);
     for (int i = 0; i < 5; i++) {
         FunctionSignature *sig = &sigs[i];
         //printf("(2) -> %s (%p) - %x (%p)\n", sig->name, sig, sig->offset, sig->offset);
         if (sig->offset) {
-            if (!_printed_debug) {
-                _printed_debug = 1;
-                info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG " (stripped)...\n", ctx->target_path);
-            }
-            uint64_t ptr = bin_pme->base + sig->offset;
-            info(COLOR_LOG "* found " COLOR_LOG_BOLD "%s" COLOR_LOG " at " PTR ".\n" COLOR_RESET, sig->name, PTR_ARG(sig->offset));
+            uint64_t ptr = sig->offset;
             int j = 0;
-            while (1) {
-                Breakpoint *bp = bps[j++];
-                if (!bp) break;
-                if (!strcmp(sig->name, bp->name)) {
-                    bp->addr = ptr;
+            SymbolEntry *se = se_head;
+            while (se) {
+                if (se->type != SE_TYPE_UNRESOLVED) {
+                    se = se->_next;
+                    continue;
                 }
+                if (!strcmp(sig->name, se->name)) {
+                    if (!_printed_debug) {
+                        _printed_debug = 1;
+                        info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG "...\n", path);
+                    }
+                    info(COLOR_LOG "* found " COLOR_LOG_BOLD "%s" COLOR_LOG " at " PTR ".\n" COLOR_RESET, sig->name, PTR_ARG(sig->offset));
+                    se->offset = ptr;
+                    se->_sub_offset = 0;
+                    se->type = SE_TYPE_STATIC; // to make sure it gets resolved as bin_base+addr
+                    break;
+                }
+                se = se->_next;
             }
         }
     }
@@ -501,7 +520,6 @@ void start_debugger(HeaptraceContext *ctx) {
                 calculate_bp_addrs(ctx, bps);
 
                 // final attempts to get symbol information (funcid + parse --symbol)
-                if (ctx->target_is_stripped) evaluate_funcid(ctx, bps);
                 evaluate_symbol_defs(ctx, bps);
                 verbose("\n");
 

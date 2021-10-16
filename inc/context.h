@@ -26,6 +26,7 @@ typedef struct HeaptraceContext {
     Breakpoint *bp_entry;
 
     SymbolEntry *libc_se_head;
+    uint libc_is_stripped;
     
     // runtime settings
     uint pid;
