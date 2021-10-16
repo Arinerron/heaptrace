@@ -22,6 +22,7 @@ typedef struct HeaptraceContext {
     char *target_interp_name;
     uint target_is_stripped;
     uint target_is_dynamic;
+    Breakpoint *bp_entry;
     
     // runtime settings
     uint pid;

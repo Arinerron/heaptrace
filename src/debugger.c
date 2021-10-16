@@ -247,42 +247,43 @@ char *get_libc_version(char *libc_path) {
 // in auxv and fetched on the first run.
 void _pre_entry(HeaptraceContext *ctx) {
     ctx->should_map_syms = 1;
+    _remove_breakpoint(ctx, ctx->bp_entry, 1);
     check_should_break(ctx, 1, BREAK_MAIN, 0);
 }
 
 
 void start_debugger(HeaptraceContext *ctx) {
-    Breakpoint *bp_malloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
-    bp_malloc->name = "malloc";
-    bp_malloc->pre_handler = pre_malloc;
-    bp_malloc->pre_handler_nargs = 1;
-    bp_malloc->post_handler = post_malloc;
+    struct {
+        char *name;
+        void *pre_handler;
+        size_t pre_handler_nargs;
+        void *post_handler;
+    } breakpoint_defs[] = {
+        {"malloc", pre_malloc, 1, post_malloc},
+        {"calloc", pre_calloc, 2, post_calloc},
+        {"free", pre_free, 1, post_free},
+        {"realloc", pre_realloc, 2, post_realloc},
+        {"reallocarray", pre_reallocarray, 3, post_reallocarray}
+    };
 
-    Breakpoint *bp_calloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
-    bp_calloc->name = "calloc";
-    bp_calloc->pre_handler = pre_calloc;
-    bp_calloc->pre_handler_nargs = 2;
-    bp_calloc->post_handler = post_calloc;
+    int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
+    Breakpoint *bps[breakpoint_defs_c + 1];
+    char *se_names[breakpoint_defs_c + 1];
 
-    Breakpoint *bp_free = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
-    bp_free->name = "free";
-    bp_free->pre_handler = pre_free;
-    bp_free->pre_handler_nargs = 1;
-    bp_free->post_handler = post_free;
+    bps[breakpoint_defs_c] = NULL;
+    se_names[breakpoint_defs_c] = NULL;
 
-    Breakpoint *bp_realloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
-    bp_realloc->name = "realloc";
-    bp_realloc->pre_handler = pre_realloc;
-    bp_realloc->pre_handler_nargs = 2;
-    bp_realloc->post_handler = post_realloc;
-
-    Breakpoint *bp_reallocarray = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
-    bp_reallocarray->name = "reallocarray";
-    bp_reallocarray->pre_handler = pre_reallocarray;
-    bp_reallocarray->pre_handler_nargs = 3;
-    bp_reallocarray->post_handler = post_reallocarray;
-
-    char *se_names[] = {"malloc", "calloc", "free", "realloc", "reallocarray", NULL};
+    Breakpoint *bp;
+    for (int i = 0; i < breakpoint_defs_c; i++) {
+        se_names[i] = breakpoint_defs[i].name;
+        bp = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
+        bp->name = breakpoint_defs[i].name;
+        bp->pre_handler = breakpoint_defs[i].pre_handler;
+        bp->pre_handler_nargs = breakpoint_defs[i].pre_handler_nargs;
+        bp->post_handler = breakpoint_defs[i].post_handler;
+        bps[i] = bp;
+    }
+    
     debug("Looking up symbols...\n");
     ctx->target_se_head = lookup_symbols(ctx, se_names);
 
@@ -331,8 +332,9 @@ void start_debugger(HeaptraceContext *ctx) {
         int status;
         //ctx->should_map_syms = !ctx->target_is_dynamic;
         ctx->should_map_syms = 0;
-        int first_signal = 1; // XXX: this is confusing. refactor later.
         ctx->pid = child;
+
+        int first_signal = 1; // XXX: this is confusing. refactor later.
         debug("Started target process in PID %d\n", child);
 
         while(waitpid(child, &status, 0)) {
@@ -350,8 +352,9 @@ void start_debugger(HeaptraceContext *ctx) {
 
             if (first_signal) {
                 first_signal = 0;
-                ctx->target_at_entry = get_auxv_entry(child);
 
+                debug("At first signal. Resolving auxiliary vector AT_ENTRY...\n");
+                ctx->target_at_entry = get_auxv_entry(child);
                 ASSERT(ctx->target_at_entry, "unable to locate at_entry auxiliary vector. Please report this.");
                 // temporary solution is to uncomment the should_map_syms = !ctx->target_is_dynamic
                 // see blame for this commit, or see commit after commit 2394278.
@@ -363,6 +366,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 bp_entry->pre_handler_nargs = 0;
                 bp_entry->post_handler = 0;
                 install_breakpoint(ctx, bp_entry);
+                ctx->bp_entry = bp_entry;
             }
 
             if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV || status == 0x67f) {
@@ -436,9 +440,6 @@ void start_debugger(HeaptraceContext *ctx) {
                     if (ctx->target_is_stripped) verbose(", stripped");
                     verbose(" binary\n" COLOR_RESET);
                 }
-                
-                // prep breakpoint arrays
-                Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc, bp_reallocarray, NULL};
 
                 // now that we know the base addresses, calculate offsets
                 int k = 0;
