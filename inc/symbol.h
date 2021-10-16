@@ -1,3 +1,6 @@
+#ifndef SYMBOL_H
+#define SYMBOL_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ptrace.h>
@@ -25,7 +28,14 @@ typedef struct SymbolEntry {
     uint64_t offset;
     int section;
     int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC, SE_TYPE_DYNAMIC_PLT
+
+    struct SymbolEntry *_next;
 } SymbolEntry;
 
-int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses);
-char *get_libc_path(char *interp_path, char *elf_path);
+SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]);
+SymbolEntry *any_se_type(SymbolEntry *se_head, int type);
+int all_se_type(SymbolEntry *se_head, int type);
+SymbolEntry *find_se_name(SymbolEntry *se_head, char *name);
+void free_se(SymbolEntry *se_head);
+
+#endif

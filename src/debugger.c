@@ -116,31 +116,36 @@ void _check_breakpoints(HeaptraceContext *ctx) {
 }
 
 
-static uint64_t _calc_offset(HeaptraceContext *ctx, SymbolEntry *se) {
-    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
-    ASSERT(bin_pme, "Target binary is missing from process mappings (!bin_pme in _calc_offset). Please report this!");
+static uint64_t calculate_bp_addr(HeaptraceContext *ctx, Breakpoint *bp) {
+    SymbolEntry *target_se = find_se_name(ctx->target_se_head, bp->name);
+    ASSERT(target_se, "calculate_bp_addr: target_se missing for name %s", bp->name);
 
-    if (se->type == SE_TYPE_STATIC) {
-        return bin_pme->base + se->offset;
-    } else if (se->type == SE_TYPE_DYNAMIC || se->type == SE_TYPE_DYNAMIC_PLT) {
+    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+    ASSERT(bin_pme, "calculate_bp_addr: target binary is missing from process mappings (!bin_pme). Please report this!");
+
+    uint64_t addr = 0;
+
+    if (target_se->type == SE_TYPE_STATIC) {
+        addr = bin_pme->base + target_se->offset;
+    } else if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
         ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
         if (!libc_pme) return 0;
 
-        uint64_t got_ptr = bin_pme->base + se->offset;
+        uint64_t got_ptr = bin_pme->base + target_se->offset;
         uint64_t got_val = ptrace(PTRACE_PEEKDATA, ctx->pid, got_ptr, NULL);
-        debug(". peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, se->name, se->type);
+        debug(". peeked val=%p at GOT ptr=%p for %s (type=%d)\n", got_val, got_ptr, target_se->name, target_se->type);
 
         // check if this is in the PLT or if it's resolved to libc
-        if (se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
+        if (target_se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
             // I had issues where GOT contained the address + 0x6, see  https://github.com/Arinerron/heaptrace/issues/22#issuecomment-937420315
             // see https://www.intezer.com/blog/malware-analysis/executable-linkable-format-101-part-4-dynamic-linking/ for explanation why it's like that
             got_val -= (uint64_t)0x6;
         }
 
-        return got_val;
+        addr = got_val;
     }
 
-    return 0;
+    bp->addr = addr;
 }
 
 
@@ -247,51 +252,42 @@ void _pre_entry(HeaptraceContext *ctx) {
 
 
 void start_debugger(HeaptraceContext *ctx) {
-    SymbolEntry *se_malloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
-    se_malloc->name = "malloc";
     Breakpoint *bp_malloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_malloc->name = "malloc";
     bp_malloc->pre_handler = pre_malloc;
     bp_malloc->pre_handler_nargs = 1;
     bp_malloc->post_handler = post_malloc;
 
-    SymbolEntry *se_calloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
-    se_calloc->name = "calloc";
     Breakpoint *bp_calloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_calloc->name = "calloc";
     bp_calloc->pre_handler = pre_calloc;
     bp_calloc->pre_handler_nargs = 2;
     bp_calloc->post_handler = post_calloc;
 
-    SymbolEntry *se_free = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
-    se_free->name = "free";
     Breakpoint *bp_free = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_free->name = "free";
     bp_free->pre_handler = pre_free;
     bp_free->pre_handler_nargs = 1;
     bp_free->post_handler = post_free;
 
-    SymbolEntry *se_realloc = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
-    se_realloc->name = "realloc";
     Breakpoint *bp_realloc = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_realloc->name = "realloc";
     bp_realloc->pre_handler = pre_realloc;
     bp_realloc->pre_handler_nargs = 2;
     bp_realloc->post_handler = post_realloc;
 
-    SymbolEntry *se_reallocarray = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
-    se_reallocarray->name = "reallocarray";
     Breakpoint *bp_reallocarray = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
     bp_reallocarray->name = "reallocarray";
     bp_reallocarray->pre_handler = pre_reallocarray;
     bp_reallocarray->pre_handler_nargs = 3;
     bp_reallocarray->post_handler = post_reallocarray;
 
-    SymbolEntry *ses[] = {se_malloc, se_calloc, se_free, se_realloc, se_reallocarray, NULL};
-    lookup_symbols(ctx, ses);
+    char *se_names[] = {"malloc", "calloc", "free", "realloc", "reallocarray", NULL};
+    debug("Looking up symbols...\n");
+    ctx->target_se_head = lookup_symbols(ctx, se_names);
 
     if (ctx->target_interp_name) {
-        //debug("Using interpreter \"%s\".\n", interp_name);
+        debug("Using interpreter \"%s\".\n", ctx->target_interp_name);
     }
 
     // ptrace section
@@ -300,8 +296,8 @@ void start_debugger(HeaptraceContext *ctx) {
     
     
     int show_banner = 0;
-    ctx->target_is_dynamic = (se_malloc->type == SE_TYPE_DYNAMIC || se_calloc->type == SE_TYPE_DYNAMIC || se_free->type == SE_TYPE_DYNAMIC || se_realloc->type == SE_TYPE_DYNAMIC || se_reallocarray->type == SE_TYPE_DYNAMIC) || (se_malloc->type == SE_TYPE_DYNAMIC_PLT || se_calloc->type == SE_TYPE_DYNAMIC_PLT || se_free->type == SE_TYPE_DYNAMIC_PLT || se_realloc->type == SE_TYPE_DYNAMIC_PLT || se_reallocarray->type == SE_TYPE_DYNAMIC_PLT); // XXX: find a better way to do this LOL
-    ctx->target_is_stripped = (se_malloc->type == SE_TYPE_UNRESOLVED && se_calloc->type == SE_TYPE_UNRESOLVED && se_free->type == SE_TYPE_UNRESOLVED && se_realloc->type == SE_TYPE_UNRESOLVED && se_reallocarray->type == SE_TYPE_UNRESOLVED);
+    ctx->target_is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
+    ctx->target_is_stripped = all_se_type(ctx->target_se_head, SE_TYPE_UNRESOLVED);
 
     if (ctx->target_is_stripped && !strlen(symbol_defs_str)) {
         warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
@@ -309,11 +305,7 @@ void start_debugger(HeaptraceContext *ctx) {
     }
 
     int look_for_brk = ctx->target_is_dynamic;
-
     assert(!ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name));
-    if (ctx->target_interp_name) {
-        //get_glibc_path(interp_name, chargv[0]);
-    }
 
     if (show_banner) {
         log(COLOR_LOG "================================================================================\n" COLOR_RESET);
@@ -422,7 +414,7 @@ void start_debugger(HeaptraceContext *ctx) {
                     char *name = libc_pme->name;
                     ctx->libc_path = name;
                     if (!name) name = "<UNKNOWN>";
-                    debug2(", libc (%s): %p-%p", libc_pme->name, libc_pme->base, libc_pme->end);
+                    debug2(", libc (%s): %p-%p", name, libc_pme->base, libc_pme->end);
                 }
                 debug2("\n");
 
@@ -444,16 +436,19 @@ void start_debugger(HeaptraceContext *ctx) {
                     if (ctx->target_is_stripped) verbose(", stripped");
                     verbose(" binary\n" COLOR_RESET);
                 }
-
-                // now that we know the base addresses, calculate offsets
-                bp_malloc->addr = _calc_offset(ctx, se_malloc);
-                bp_calloc->addr = _calc_offset(ctx, se_calloc);
-                bp_free->addr = _calc_offset(ctx, se_free);
-                bp_realloc->addr = _calc_offset(ctx, se_realloc);
-                bp_reallocarray->addr = _calc_offset(ctx, se_reallocarray);
                 
                 // prep breakpoint arrays
                 Breakpoint *bps[] = {bp_malloc, bp_calloc, bp_free, bp_realloc, bp_reallocarray, NULL};
+
+                // now that we know the base addresses, calculate offsets
+                int k = 0;
+                Breakpoint *bp;
+                while (1) {
+                    bp = bps[k++];
+                    if (!bp) break;
+                    install_breakpoint(ctx, bp);
+                    calculate_bp_addr(ctx, bp);
+                }
 
                 // final attempts to get symbol information (funcid + parse --symbol)
                 if (ctx->target_is_stripped) evaluate_funcid(ctx, bps);
@@ -461,9 +456,9 @@ void start_debugger(HeaptraceContext *ctx) {
                 verbose("\n");
 
                 // install breakpoints
-                int k = 0;
+                k = 0;
                 while (1) {
-                    Breakpoint *bp = bps[k++];
+                    bp = bps[k++];
                     if (!bp) break;
                     install_breakpoint(ctx, bp);
                 }

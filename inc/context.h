@@ -7,13 +7,16 @@
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
+#include "symbol.h"
 
 typedef struct Chunk Chunk;
+typedef struct SymbolEntry SymbolEntry;
 
 typedef struct HeaptraceContext {
     // init settings
     char *target_path;
     char **target_argv;
+    SymbolEntry *target_se_head;
 
     // pre-analysis settings
     char *target_interp_name;

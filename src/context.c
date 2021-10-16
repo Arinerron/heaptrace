@@ -11,9 +11,12 @@ HeaptraceContext *alloc_ctx() {
 
 void *free_ctx(HeaptraceContext *ctx) {
     debug("Freeing context %p...\n", ctx);
+    
     _remove_breakpoints(ctx, 1);
     free_pme_list(ctx->pme_head);
     free(ctx->libc_version);
     free(ctx->target_interp_name);
+    free_se(ctx->target_se_head);
+
     free(ctx);
 }

@@ -5,9 +5,28 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
+SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *names[]) {
+    // init list of symbolentries
+    SymbolEntry *se_head = 0;
+    SymbolEntry *cur_se = 0;
+    int names_i = 0;
+    while (names[names_i]) {
+        SymbolEntry *se = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
+        se->name = strdup(names[names_i]);
+        se->type = SE_TYPE_UNRESOLVED;
+        if (!se_head) {
+            se_head = se;
+        } else {
+            cur_se->_next = se;
+        }
+        cur_se = se;
+        names_i++;
+    }
+    if (!se_head) return 0;
+
     char **interp_name = &ctx->target_interp_name;
     char *fname = ctx->target_path;
+    
     FILE *tfile = fopen(fname, "r");
     if (tfile == 0) {
         fatal("failed to open target.\n");
@@ -130,13 +149,6 @@ int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
         }
     }
 
-    // reset symbol entries
-    int sesi = 0;
-    while (ses[sesi]) {
-        SymbolEntry *cse = ses[sesi++];
-        cse->type = SE_TYPE_UNRESOLVED;
-    }
-
     // resolve dynamic (libc) symbols
     if (rela_dyn_off && dynstr_off && dynsym_off) {
         int rela_offsets_sz = (dynsym_sz / sizeof(Elf64_Sym)) + 1;
@@ -172,15 +184,16 @@ int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
                     n = pos - name;
                 }
 
-                int sesi = 0;
-                while (ses[sesi]) {
-                    SymbolEntry *cse = ses[sesi++];
+                SymbolEntry *cse = se_head;
+                while (1) {
+                    if (!cse) break;
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
                         debug("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
                     }
+                    cse = cse->_next;
                 }
             }
             ji++;
@@ -224,15 +237,16 @@ int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
                     n = pos - name;
                 }
 
-                int sesi = 0;
-                while (ses[sesi]) {
-                    SymbolEntry *cse = ses[sesi++];
+                SymbolEntry *cse = se_head;
+                while (1) {
+                    if (!cse) break;
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
                         debug("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC_PLT;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
                     }
+                    cse = cse->_next;
                 }
             }
             ji++;
@@ -250,19 +264,68 @@ int lookup_symbols(HeaptraceContext *ctx, SymbolEntry **ses) {
                 char *name = cbytes + strtab_off + sym.st_name;
                 _CHECK_BOUNDS(name, "static: name");
                 size_t n = strlen(name);
-                int sesi = 0;
-                while (ses[sesi]) {
-                    SymbolEntry *cse = ses[sesi++];
+
+                SymbolEntry *cse = se_head;
+                while (1) {
+                    if (!cse) break;
                     if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
                         debug("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
                         cse->type = SE_TYPE_STATIC;
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;
                         cse->section = sym.st_shndx;
                     }
+                    cse = cse->_next;
                 }
             }
         }
     }
 
+    return se_head;
+}
+
+
+SymbolEntry *any_se_type(SymbolEntry *se_head, int type) {
+    SymbolEntry *cse = se_head;
+    while (cse) {
+        if (cse->type == type) {
+            return cse;
+        }
+        cse = cse->_next;
+    }
+    return 0;
+}
+
+
+int all_se_type(SymbolEntry *se_head, int type) {
+    SymbolEntry *cse = se_head;
+    while (cse) {
+        if (cse->type != type) {
+            return 0;
+        }
+        cse = cse->_next;
+    }
     return 1;
+}
+
+
+SymbolEntry *find_se_name(SymbolEntry *se_head, char *name) {
+    SymbolEntry *cse = se_head;
+    while (cse) {
+        if (!strcmp(cse->name, name)) {
+            return cse;
+        }
+        cse = cse->_next;
+    }
+}
+
+
+void free_se(SymbolEntry *se_head) {
+    SymbolEntry *cse = se_head;
+    while (1) {
+        if (!cse) break;
+        SymbolEntry *next_cse = cse->_next;
+        free(cse->name);
+        free(cse);
+        cse = next_cse;
+    }
 }

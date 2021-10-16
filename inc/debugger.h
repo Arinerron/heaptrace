@@ -26,7 +26,7 @@ extern int OPT_FOLLOW_FORK;
 
 void _check_breakpoints(HeaptraceContext *ctx);
 
-static uint64_t _calc_offset(HeaptraceContext *ctx, SymbolEntry *se);
+static uint64_t calculate_bp_offset(HeaptraceContext *ctx, Breakpoint *bp);
 void evaluate_funcid(HeaptraceContext *ctx, Breakpoint **bps);
 
 
