@@ -184,6 +184,7 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
 
 void post_free(HeaptraceContext *ctx, uint64_t retval) {
     ctx->between_pre_and_post = 0;
+    log(COLOR_RESET);
     verbose_heap("%s", _get_source_section(ctx));
     check_should_break(ctx, ctx->h_oid, BREAK_AFTER, 1);
 }
