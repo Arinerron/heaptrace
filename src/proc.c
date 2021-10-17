@@ -58,41 +58,37 @@ ProcMapsEntry *build_pme_list(int pid) {
         fscanf(f, "%d:%d", &_tmp, &_tmp); // 103:08
         fscanf(f, " ");
 
-        fscanf(f, "%" PRIu64, &_tmp); // 18615725
-        if(*_tmp != 0) {
-            fscanf(f, " ");
+        fscanf(f, "%" PRIu64 "%*[ \t]c", &_tmp, &_tmp);
+        memset(cur_fname, 0, MAX_PATH_SIZE);
+        fscanf(f, "%4096[^\n]s\n", cur_fname); // 18615725
+        if (!pme || strcmp(pme->name, cur_fname)) { // if the name changed or first run
+            pme = calloc(1, sizeof(ProcMapsEntry));
+            pme->pet = PROCELF_TYPE_UNKNOWN;
+            pme->name = strdup(cur_fname);
 
-            memset(cur_fname, 0, MAX_PATH_SIZE);
-            fscanf(f, "%4096s\n", cur_fname); // XXX: sometimes reads in the next line. Usually works.
-            if (!pme || strcmp(pme->name, cur_fname)) { // if the name changed or first run
-                pme = calloc(1, sizeof(ProcMapsEntry));
-                pme->pet = PROCELF_TYPE_UNKNOWN;
-                pme->name = strdup(cur_fname);
-
-                // insert into list
-                pme->_next = pme_head;
-                pme_head = pme;
-            }
-
-            if (!strcmp(fname, cur_fname)) {
-                pme->pet = PROCELF_TYPE_BINARY;
-            } else if (strstr(cur_fname, "libc-") || strstr(cur_fname, "libc.so")) { // XXX: quite a hack
-                pme->pet = PROCELF_TYPE_LIBC;
-            } else if (!strcmp("[heap]", cur_fname)) {
-                pme->pet = PROCELF_TYPE_HEAP;
-            } else if (!strcmp("[stack]", cur_fname)) {
-                pme->pet = PROCELF_TYPE_STACK;
-            }
-
-            if (!pme->base || (pme->base && cur_section_base < pme->base)) {
-                pme->base = cur_section_base;
-            }
-            if (!pme->end || (pme->end && cur_section_end > pme->end)) {
-                pme->end = cur_section_end;
-            }
-        } else {
-            fscanf(f, "\n");
+            // insert into list
+            pme->_next = pme_head;
+            pme_head = pme;
         }
+
+        if (!strcmp(fname, cur_fname)) {
+            pme->pet = PROCELF_TYPE_BINARY;
+        } else if (strstr(cur_fname, "libc-") || strstr(cur_fname, "libc.so")) { // XXX: quite a hack
+            pme->pet = PROCELF_TYPE_LIBC;
+        } else if (!strcmp("[heap]", cur_fname)) {
+            pme->pet = PROCELF_TYPE_HEAP;
+        } else if (!strcmp("[stack]", cur_fname)) {
+            pme->pet = PROCELF_TYPE_STACK;
+        }
+
+        if (!pme->base || (pme->base && cur_section_base < pme->base)) {
+            pme->base = cur_section_base;
+        }
+        if (!pme->end || (pme->end && cur_section_end > pme->end)) {
+            pme->end = cur_section_end;
+        }
+
+        debug("PME: \"%s\" (%d) = %p - %p\n", pme->name, pme->pet, pme->base, pme->end);
     }
 
     fclose(f);

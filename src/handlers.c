@@ -22,6 +22,22 @@ static inline char *_get_source_section(HeaptraceContext *ctx) {
 }
 
 
+// check if pointer is in stack, libc, or binary, and error if so
+static void _check_heap_ptr_retval(HeaptraceContext *ctx, uint64_t ptr) {
+    if (!ptr) return; // we already have NULL warnings
+    ProcMapsEntry *pme = pme_find_addr(ctx->pme_head, ptr);
+    if (pme) {
+        if (pme->pet == PROCELF_TYPE_LIBC // possibly malloc hook?
+                || pme->pet == PROCELF_TYPE_BINARY // possibly GOT?
+                || pme->pet == PROCELF_TYPE_STACK) { // possibly return ptr?
+            warn_heap("return value is not a heap pointer");
+            warn_heap2("this indicates some form of heap corruption");
+            warn_heap2("pointer is inside of section \"%s\" (%p-%p)", pme->name, pme->base, pme->end);
+        }
+    }
+}
+
+
 void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     ctx->h_size = (size_t)isize * (size_t)nmemb;
     
@@ -32,6 +48,7 @@ void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
 
     ctx->between_pre_and_post = "calloc";
+    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
@@ -56,6 +73,8 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
         warn_heap("NULL return value indicates that an error happened");
     } 
 
+    _check_heap_ptr_retval(ctx, ptr);
+
     chunk->state = STATE_MALLOC;
     chunk->ptr = ptr;
     chunk->size = ctx->h_size;
@@ -79,6 +98,7 @@ void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
 
     ctx->between_pre_and_post = "malloc";
+    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
@@ -102,6 +122,8 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
          */
         warn_heap("NULL return value indicates that an error happened");
     } 
+
+    _check_heap_ptr_retval(ctx, ptr);
 
     chunk->state = STATE_MALLOC;
     chunk->ptr = ptr;
@@ -156,6 +178,7 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
     ctx->between_pre_and_post = "free";
 
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 0);
+    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
@@ -207,6 +230,7 @@ void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmem
     ctx->between_pre_and_post = _name;
 
     check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
+    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
@@ -282,7 +306,9 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
                 ASSERT(!ctx->h_size, "realloc/reallocarray returned NULL even though size was not zero");
             }
         }
-
+        
+        _check_heap_ptr_retval(ctx, new_ptr);
+        
         if (ctx->h_ptr && ctx->h_orig_chunk && _override_free) {
             ctx->h_orig_chunk->state = STATE_FREE;
             ctx->h_orig_chunk->ops[STATE_FREE] = ctx->h_oid;
