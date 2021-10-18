@@ -5,7 +5,7 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
+void lookup_symbols(HeaptraceFile *hf, char *names[]) {
     // init list of symbolentries
     SymbolEntry *se_head = 0;
     SymbolEntry *cur_se = 0;
@@ -22,21 +22,25 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
         cur_se = se;
         names_i++;
     }
-    if (!se_head) return 0;
+    if (!se_head) {
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
+    }
 
-    char **interp_name = &ctx->target_interp_name;
-    
-    FILE *tfile = fopen(fname, "r");
+    FILE *tfile = fopen(hf->path, "r");
     if (tfile == 0) {
         fatal("failed to open target.\n");
-        exit(1);
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
     if (fseek(tfile, 0, SEEK_END)) {
         fclose(tfile);
         fatal("failed to seek target.\n");
-        exit(1);
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
     long tfile_size = ftell(tfile);
 
@@ -45,7 +49,9 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
     if (tbytes == 0) {
         fclose(tfile);
         ASSERT(tbytes != 0, "mmap() failed in lookup_symbols");
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
 
     fclose(tfile);
@@ -55,25 +61,28 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
     memmove(&elf_hdr, tbytes, sizeof(elf_hdr));
     if (memcmp(elf_hdr.e_ident, expected_magic, sizeof(expected_magic)) != 0) {
         fatal("target is not an ELF executable.\n");
-        exit(1);
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
     if (elf_hdr.e_ident[EI_CLASS] != ELFCLASS64) {
         fatal("target is not an ELF64 executable.\n");
-        exit(1);
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
     if (elf_hdr.e_machine != EM_X86_64) {
         fatal("target is not x86-64.\n");
-        exit(1);
-        return 0;
+        free(hf->se_head);
+        hf->se_head = 0;
+        return;
     }
 
     size_t string_index = elf_hdr.e_shstrndx;
     uint64_t string_offset;
     uint64_t load_addr = 0;
-    uint64_t interp_addr = 0;
     char *cbytes = (char *)tbytes;
+    uint is_dynamic = 0;
     for (uint16_t i = 0; i < elf_hdr.e_phnum; i++) {
         size_t offset = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;
         Elf64_Phdr phdr;
@@ -85,11 +94,13 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
             load_addr = phdr.p_vaddr;
         }
 
+        // if this section is present, this binary is dynamically-linked.
         if (phdr.p_type == PT_INTERP) {
-            interp_addr = phdr.p_vaddr;
+            is_dynamic = 1;
         }
     }
 
+    uint is_stripped = 1;
     size_t strtab_off = 0;
     size_t symtab_off = 0;
     size_t symtab_sz = 0;
@@ -112,12 +123,6 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
             break;
         }
     }
-
-    //if (interp_addr) _CHECK_BOUNDS(cbytes + interp_addr, "_interp_name: cbytes + interp_addr");
-    char *_iptr = cbytes + interp_addr;
-    if (!((void *)(_iptr) >= (void *)tbytes && (void *)(_iptr) < (void *)tbytes + tfile_size)) { _iptr = 0; interp_addr = 0; }; // XXX: strange bug. see ret2win bin in ~/ctf
-    char *_interp_name = (interp_addr ? strdup(_iptr) : 0);
-    *interp_name = _interp_name;
 
     // find .plt, symtab, .strtab offsets
     for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {
@@ -191,6 +196,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
+                        if (cse->offset) is_stripped = 0;
                     }
                     cse = cse->_next;
                 }
@@ -244,6 +250,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                         cse->type = SE_TYPE_DYNAMIC_PLT;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
+                        if (cse->offset) is_stripped = 0;
                     }
                     cse = cse->_next;
                 }
@@ -274,6 +281,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;
                         cse->_sub_offset = load_addr; // XXX: for some reason libc has a load addr of 0x40 that's throwing stuff off. This is a stopgap solution for that.
                         cse->section = sym.st_shndx;
+                        if (sym.st_value) is_stripped = 0;
                     }
                     cse = cse->_next;
                 }
@@ -281,7 +289,9 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
         }
     }
 
-    return se_head;
+    hf->se_head = se_head;
+    hf->is_stripped = is_stripped;
+    hf->is_dynamic = is_dynamic;
 }
 
 

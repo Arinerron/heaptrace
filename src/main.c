@@ -72,38 +72,38 @@ int main(int argc, char *argv[]) {
         }
         chargv[argc - start_at] = NULL;
 
-        ctx->target_path = chargv[0];
+        ctx->target->path = chargv[0];
         ctx->target_argv = chargv;
 
         #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-        chmod(ctx->target_path, 511);
+        chmod(ctx->target->path, 511);
         #endif
 
         // TODO: refactor this into a check_target_access(ctx) function
         struct stat path_stat;
-        if (access(ctx->target_path, F_OK) != 0) {
-            fatal("unable to execute \"%s\": file does not exist.\n", ctx->target_path);
+        if (access(ctx->target->path, F_OK) != 0) {
+            fatal("unable to execute \"%s\": file does not exist.\n", ctx->target->path);
             log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
             exit(1);
-        } else if (access(ctx->target_path, R_OK) != 0) {
-            fatal("permission to read target \"%s\" denied.\n", ctx->target_path);
-            log(COLOR_WARN "hint: chmod +r %s\n" COLOR_RESET, ctx->target_path);
+        } else if (access(ctx->target->path, R_OK) != 0) {
+            fatal("permission to read target \"%s\" denied.\n", ctx->target->path);
+            log(COLOR_WARN "hint: chmod +r %s\n" COLOR_RESET, ctx->target->path);
             exit(1);
-        } else if (access(ctx->target_path, X_OK) != 0) {
-            fatal("permission to execute target \"%s\" denied.\n", ctx->target_path);
-            log(COLOR_WARN "hint: chmod +x %s\n" COLOR_RESET, ctx->target_path);
+        } else if (access(ctx->target->path, X_OK) != 0) {
+            fatal("permission to execute target \"%s\" denied.\n", ctx->target->path);
+            log(COLOR_WARN "hint: chmod +x %s\n" COLOR_RESET, ctx->target->path);
             exit(1);
         } else {
-            stat(ctx->target_path, &path_stat);
+            stat(ctx->target->path, &path_stat);
             if (!S_ISREG(path_stat.st_mode)) {
-                fatal("unable to execute \"%s\": target is not a regular file.\n", ctx->target_path);
+                fatal("unable to execute \"%s\": target is not a regular file.\n", ctx->target->path);
                 log(COLOR_WARN "hint: did you accidentally specify the path to a directory?\n" COLOR_RESET);
                 exit(1);
             }
         }
     } else {
         char *target_argv[] = {NULL};
-        ctx->target_path = NULL;
+        ctx->target->path = NULL;
         ctx->target_argv = target_argv;
     }
 

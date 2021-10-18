@@ -25,8 +25,8 @@ extern int OPT_FOLLOW_FORK;
 
 void _check_breakpoints(HeaptraceContext *ctx);
 
-static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps);
-void evaluate_funcid(char *path, SymbolEntry *se_head);
+static uint calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps);
+uint evaluate_funcid(HeaptraceFile *hf);
 
 
 void end_debugger(HeaptraceContext *ctx, int should_detach);

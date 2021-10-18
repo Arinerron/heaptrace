@@ -32,7 +32,7 @@ typedef struct SymbolEntry {
     struct SymbolEntry *_next;
 } SymbolEntry;
 
-SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]);
+void lookup_symbols(HeaptraceFile *hf, char *names[]);
 SymbolEntry *any_se_type(SymbolEntry *se_head, int type);
 int all_se_type(SymbolEntry *se_head, int type);
 SymbolEntry *find_se_name(SymbolEntry *se_head, char *name);

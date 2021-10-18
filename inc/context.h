@@ -7,6 +7,9 @@
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
+
+typedef struct HeaptraceFile HeaptraceFile;
+
 #include "symbol.h"
 
 typedef struct Chunk Chunk;
@@ -14,20 +17,18 @@ typedef struct SymbolEntry SymbolEntry;
 
 typedef struct HeaptraceContext {
     // init settings
-    char *target_path;
     char **target_argv;
     char **se_names;
     SymbolEntry *target_se_head;
 
     // pre-analysis settings
+    HeaptraceFile *target;
+    HeaptraceFile *libc;
+
     Breakpoint **pre_analysis_bps;
-    char *target_interp_name;
-    uint target_is_stripped;
-    uint target_is_dynamic;
     Breakpoint *bp_entry;
 
     SymbolEntry *libc_se_head;
-    uint libc_is_stripped;
     
     // runtime settings
     uint pid;
@@ -55,7 +56,6 @@ typedef struct HeaptraceContext {
 
     // post-analysis settings
     ProcMapsEntry *pme_head;
-    char *libc_path;
     char *libc_version;
 
     // chunk storage globals
@@ -66,6 +66,15 @@ typedef struct HeaptraceContext {
     // breakpoints storage globals
     Breakpoint *breakpoints[BREAKPOINTS_COUNT];
 } HeaptraceContext;
+
+
+typedef struct HeaptraceFile {
+    HeaptraceContext *ctx;
+    char *path;
+    uint is_dynamic;
+    uint is_stripped;
+    SymbolEntry *se_head;
+} HeaptraceFile;
 
 void *free_ctx(HeaptraceContext *ctx);
 HeaptraceContext *alloc_ctx();

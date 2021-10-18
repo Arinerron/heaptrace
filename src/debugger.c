@@ -123,14 +123,15 @@ void _check_breakpoints(HeaptraceContext *ctx) {
 }
 
 
-static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
+static uint calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
+    uint show_banner = 0;
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
     ASSERT(bin_pme, "calculate_bp_addrs: target binary is missing from process mappings (!bin_pme). Please report this!");
 
     // if glibc exists, lookup symbols
     ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     if (libc_pme) {
-        ctx->libc_path = libc_pme->name;
+        ctx->libc->path = libc_pme->name;
 
         // prefix all se_names with "__libc_"
         int i = 0;
@@ -151,7 +152,7 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
             i++;
         }
         arr[i] = NULL;
-        ctx->libc_se_head = lookup_symbols(ctx, ctx->libc_path, arr);
+        lookup_symbols(ctx->libc, arr);
         
         // free temp sym array
         i = 0;
@@ -160,7 +161,7 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
         free(arr);
 
         // remove "__libc_" prefix
-        SymbolEntry *cse = ctx->libc_se_head;
+        SymbolEntry *cse = ctx->libc->se_head;
         while (cse) {
             char *old_name = cse->name;
             cse->name = strdup(cse->name + 7); // 7 == strlen("__libc_")
@@ -172,20 +173,20 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
         }
         
         // find function signatures in case it's stripped
-        ctx->libc_is_stripped = all_se_type(ctx->libc_se_head, SE_TYPE_UNRESOLVED); // XXX: doesn't rly work bceause they're resolved, just set to 0x40 (or ctx->_sub_offset)
-        evaluate_funcid(ctx->libc_path, ctx->libc_se_head);
+        ASSERT(ctx->libc, "ctx->libc is NULL. Please report this!");
+        show_banner |= evaluate_funcid(ctx->libc);
     }
 
-    evaluate_funcid(ctx->target_path, ctx->target_se_head);
+    show_banner |= evaluate_funcid(ctx->target);
 
     int i = 0;
     Breakpoint *bp;
     while ((bp = (ctx->pre_analysis_bps)[i++]), bp) {
-        SymbolEntry *target_se = find_se_name(ctx->target_se_head, bp->name);
+        SymbolEntry *target_se = find_se_name(ctx->target->se_head, bp->name);
         ASSERT(target_se, "calculate_bp_addrs: target_se missing for name %s", bp->name);
 
         // create __libc_ version
-        SymbolEntry *libc_se = find_se_name(ctx->libc_se_head, bp->name);
+        SymbolEntry *libc_se = find_se_name(ctx->libc->se_head, bp->name);
         if (libc_se) {
             libc_se->offset += libc_se->_sub_offset; // XXX: this is a stopgap solution for libc. libc is setting a random load addr of 0x40 which is throwing the offset off.
             //debug("libc %s: %s 0x%x (type=%d)\n", ctx->libc_path, libc_se->name, libc_se->offset, libc_se->type);
@@ -193,7 +194,7 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
 
         uint64_t addr = 0;
 
-        if (ctx->target_is_dynamic && libc_pme && libc_se && libc_se->offset) {
+        if (ctx->target->is_dynamic && libc_pme && libc_se && libc_se->offset) {
             // prioritize the libc symbols over target's symbols
             addr = libc_pme->base + libc_se->offset;
             debug(". used dynamic libc addr " U64T "\n", addr);
@@ -223,13 +224,16 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
 
         bp->addr = addr;
     }
+
+    return show_banner;
 }
 
 
 // attempts to identify functions in stripped ELFs (bin_pme->base only, not libc)
-void evaluate_funcid(char *path, SymbolEntry *se_head) {
+uint evaluate_funcid(HeaptraceFile *hf) {
+    uint show_banner = 0;
     int _printed_debug = 0;
-    FILE *f = fopen(path, "r");
+    FILE *f = fopen(hf->path, "r");
     FunctionSignature *sigs = find_function_signatures(f);
     for (int i = 0; i < 5; i++) {
         FunctionSignature *sig = &sigs[i];
@@ -237,7 +241,7 @@ void evaluate_funcid(char *path, SymbolEntry *se_head) {
         if (sig->offset) {
             uint64_t ptr = sig->offset;
             int j = 0;
-            SymbolEntry *se = se_head;
+            SymbolEntry *se = hf->se_head;
             while (se) {
                 if (se->type != SE_TYPE_UNRESOLVED) {
                     se = se->_next;
@@ -246,7 +250,8 @@ void evaluate_funcid(char *path, SymbolEntry *se_head) {
                 if (!strcmp(sig->name, se->name)) {
                     if (!_printed_debug) {
                         _printed_debug = 1;
-                        info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG "...\n", path);
+                        info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG "...\n", hf->path);
+                        show_banner = 1;
                     }
                     info(COLOR_LOG "* found " COLOR_LOG_BOLD "%s" COLOR_LOG " at " PTR ".\n" COLOR_RESET, sig->name, PTR_ARG(sig->offset));
                     se->offset = ptr;
@@ -259,9 +264,9 @@ void evaluate_funcid(char *path, SymbolEntry *se_head) {
         }
     }
 
-    if (_printed_debug) info("\n");
     if (sigs) free(sigs);
     fclose(f);
+    return show_banner;
 }
 
 
@@ -376,16 +381,13 @@ void pre_analysis(HeaptraceContext *ctx) {
     }
     
     debug("Looking up symbols...\n");
-    ctx->target_se_head = lookup_symbols(ctx, ctx->target_path, ctx->se_names);
-
-    if (ctx->target_interp_name) {
-        debug("Using interpreter \"%s\".\n", ctx->target_interp_name);
-    }
+    lookup_symbols(ctx->target, ctx->se_names);
 }
 
 
-void map_syms(HeaptraceContext *ctx) {
+uint map_syms(HeaptraceContext *ctx) {
     ctx->should_map_syms = 0;
+    uint show_banner = 0;
 
     // parse /proc/pid/maps
     if (!ctx->pme_head) ctx->pme_head = build_pme_list(ctx->pid); // already built if attaching
@@ -397,16 +399,17 @@ void map_syms(HeaptraceContext *ctx) {
     debug("found memory maps... binary (%s): " U64T "-" U64T, bin_pme->name, bin_pme->base, bin_pme->end);
     if (libc_pme) {
         char *name = libc_pme->name;
-        ctx->libc_path = name;
+        ctx->libc->path = name;
         if (!name) name = "<UNKNOWN>";
         debug2(", libc (%s): " U64T "-" U64T, name, libc_pme->base, libc_pme->end);
     }
     debug2("\n");
 
     // print the type of binary etc
-    if (ctx->target_is_dynamic) {
+    ASSERT(ctx->target, "!ctx->target. Please report this.");
+    if (ctx->target->is_dynamic) {
         verbose(COLOR_RESET_BOLD "Dynamically-linked");
-        if (ctx->target_is_stripped) verbose(", stripped");
+        if (ctx->target->is_stripped) verbose(", stripped");
         verbose(" binary")
 
         if (libc_pme && libc_pme->name) {
@@ -418,12 +421,13 @@ void map_syms(HeaptraceContext *ctx) {
         } else { verbose("\n"); }
     } else {
         verbose(COLOR_RESET_BOLD "Statically-linked");
-        if (ctx->target_is_stripped) verbose(", stripped");
+        if (ctx->target->is_stripped) verbose(", stripped");
         verbose(" binary\n" COLOR_RESET);
     }
+    if (OPT_VERBOSE) show_banner = 1;
 
     // now that we know the base addresses, calculate offsets
-    calculate_bp_addrs(ctx, ctx->pre_analysis_bps);
+    show_banner |= calculate_bp_addrs(ctx, ctx->pre_analysis_bps);
 
     // final attempts to get symbol information (funcid + parse --symbol)
     evaluate_symbol_defs(ctx, ctx->pre_analysis_bps);
@@ -437,6 +441,8 @@ void map_syms(HeaptraceContext *ctx) {
         if (!bp) break;
         install_breakpoint(ctx, bp);
     }
+
+    return show_banner;
 }
 
 
@@ -451,8 +457,8 @@ int start_process(HeaptraceContext *ctx) {
 
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         extern char **environ;
-        if (execvpe(ctx->target_path, ctx->target_argv, environ) == -1) {
-            fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target_path, errno, strerror(errno)); // XXX: not thread safe
+        if (execvpe(ctx->target->path, ctx->target_argv, environ) == -1) {
+            fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target->path, errno, strerror(errno)); // XXX: not thread safe
             exit(1);
         }
     }
@@ -471,30 +477,16 @@ void start_debugger(HeaptraceContext *ctx) {
             fatal("failed to find process %d's binary name. Are you sure you have the right process ID? Does heaptrace have permission to ptrace the target process?\n", OPT_ATTACH_PID);
             exit(1);
         }
-        ctx->target_path = bin_pme->name;
-        debug("Found pid %d's ctx->target_path: %s\n", ctx->pid, ctx->target_path);
+        ctx->target->path = bin_pme->name;
+        debug("Found pid %d's ctx->target->path: %s\n", ctx->pid, ctx->target->path);
     }
     
     pre_analysis(ctx);
     
     int show_banner = 0;
-    ctx->target_is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
-    ctx->target_is_stripped = all_se_type(ctx->target_se_head, SE_TYPE_UNRESOLVED);
+    //ctx->target->is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
 
-    if (ctx->target_is_stripped && !strlen(symbol_defs_str)) {
-        warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
-        show_banner = 1;
-    }
-
-    int look_for_brk = ctx->target_is_dynamic;
-    if (!(!ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name))) {
-        debug("debug warning: assertion failed: !ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name))\n");
-    }
-
-    if (show_banner) {
-        log(COLOR_LOG "================================================================================\n" COLOR_RESET);
-    }
-    log("\n");
+    int look_for_brk = ctx->target->is_dynamic;
 
     if (!OPT_ATTACH_PID) {
         ctx->pid = start_process(ctx);
@@ -506,10 +498,10 @@ void start_debugger(HeaptraceContext *ctx) {
             fatal("Failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
             exit(1);
         }
-        log("\n");
+        show_banner = 1;
     }
 
-    //ctx->should_map_syms = !ctx->target_is_dynamic;
+    //ctx->should_map_syms = !ctx->target->is_dynamic;
     int set_auxv_bp = !OPT_ATTACH_PID; // XXX: this is confusing. refactor later.
     ctx->should_map_syms = !set_auxv_bp;
 
@@ -584,7 +576,17 @@ void start_debugger(HeaptraceContext *ctx) {
         }
 
         if (ctx->should_map_syms) {
-            map_syms(ctx);
+            show_banner |= map_syms(ctx);
+            if (ctx->target->is_stripped && ctx->libc->is_stripped && !strlen(symbol_defs_str)) {
+                warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
+                show_banner = 1;
+            }
+
+            if (show_banner) {
+                log(COLOR_LOG "================================================================================\n" COLOR_RESET);
+            }
+            log("\n");
+
         }
 
         ptrace(PTRACE_CONT, ctx->pid, NULL, NULL);
