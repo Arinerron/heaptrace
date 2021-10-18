@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <sys/ptrace.h>
 #include <string.h>
-#include <assert.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <sys/ptrace.h>
