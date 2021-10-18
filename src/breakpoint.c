@@ -36,24 +36,31 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
 
 
 // TODO: convert into linked list
-void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int should_free) {
-    for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
-        if (ctx->breakpoints[i] == bp) {
-            ctx->breakpoints[i] = 0;
+void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int opts) {
+    if (opts & BREAKPOINT_OPT_UNREGISTER) {
+        for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
+            if (ctx->breakpoints[i] == bp) {
+                ctx->breakpoints[i] = 0;
+            }
         }
     }
     
-    ptrace(PTRACE_POKEDATA, ctx->pid, bp->addr, bp->orig_data);
-    if (should_free) free(bp);
+    if (opts & BREAKPOINT_OPT_REMOVE) {
+        if (ptrace(PTRACE_POKEDATA, ctx->pid, bp->addr, bp->orig_data) == -1) {
+            debug("debug warning: failed to remove bp: %s (%d)\n", strerror(errno), errno);
+        }
+    }
+
+    if (opts & BREAKPOINT_OPT_FREE) free(bp);
 }
 
 
 // TODO: convert into linked list
-void _remove_breakpoints(HeaptraceContext *ctx, int should_free) {
+void _remove_breakpoints(HeaptraceContext *ctx, int opts) {
     debug("removing all breakpoints...\n");
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
         if (ctx->breakpoints[i]) {
-            _remove_breakpoint(ctx, ctx->breakpoints[i], should_free);
+            _remove_breakpoint(ctx, ctx->breakpoints[i], opts);
         }
     }
 }

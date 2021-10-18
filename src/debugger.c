@@ -15,6 +15,7 @@
 #include "options.h"
 #include "funcid.h"
 #include "proc.h"
+#include "main.h"
 
 static int in_breakpoint = 0;
 
@@ -95,7 +96,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                             if (orig_bp->post_handler) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
-                            _remove_breakpoint(ctx, bp, 1);
+                            _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
                         } else {
                             // we never installed a return value catcher breakpoint!
@@ -173,7 +174,7 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
 
     int i = 0;
     Breakpoint *bp;
-    while ((bp = bps[i++]), bp) {
+    while ((bp = (ctx->pre_analysis_bps)[i++]), bp) {
         SymbolEntry *target_se = find_se_name(ctx->target_se_head, bp->name);
         ASSERT(target_se, "calculate_bp_addrs: target_se missing for name %s", bp->name);
 
@@ -259,11 +260,14 @@ void evaluate_funcid(char *path, SymbolEntry *se_head) {
 
 
 void end_debugger(HeaptraceContext *ctx, int should_detach) {
+    if (ctx == FIRST_CTX) FIRST_CTX = 0; // prevent race condition on free()
+
     int _was_sigsegv = 0;
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
 
     if (ctx->status16 == PTRACE_EVENT_EXEC) {
         log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
+        should_detach = 1;
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
@@ -284,7 +288,12 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     show_stats(ctx);
 
     if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
-    if (should_detach) ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+    if (should_detach) {
+        _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL);
+        ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+    } else {
+        kill(ctx->pid, SIGINT);
+    }
     free_ctx(ctx);
     exit(0);
 }
@@ -319,12 +328,12 @@ char *get_libc_version(char *libc_path) {
 // in auxv and fetched on the first run.
 void _pre_entry(HeaptraceContext *ctx) {
     ctx->should_map_syms = 1;
-    _remove_breakpoint(ctx, ctx->bp_entry, 1);
+    _remove_breakpoint(ctx, ctx->bp_entry, BREAKPOINT_OPTS_ALL);
     check_should_break(ctx, 1, BREAK_MAIN, 0);
 }
 
 
-void start_debugger(HeaptraceContext *ctx) {
+void pre_analysis(HeaptraceContext *ctx) {
     struct {
         char *name;
         void *pre_handler;
@@ -339,8 +348,11 @@ void start_debugger(HeaptraceContext *ctx) {
     };
 
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
-    Breakpoint *bps[breakpoint_defs_c + 1];
-    char *se_names[breakpoint_defs_c + 1];
+    //Breakpoint *bps[breakpoint_defs_c + 1];
+    Breakpoint **bps = (Breakpoint **)malloc(sizeof(Breakpoint *) * (breakpoint_defs_c + 1));
+    ctx->pre_analysis_bps = bps;
+    //char *se_names[breakpoint_defs_c + 1];
+    char **se_names = (char **)malloc(sizeof(char *) * (breakpoint_defs_c + 1));
     ctx->se_names = se_names;
 
     bps[breakpoint_defs_c] = NULL;
@@ -363,11 +375,101 @@ void start_debugger(HeaptraceContext *ctx) {
     if (ctx->target_interp_name) {
         debug("Using interpreter \"%s\".\n", ctx->target_interp_name);
     }
+}
 
-    // ptrace section
+
+void map_syms(HeaptraceContext *ctx) {
+    ctx->should_map_syms = 0;
+
+    // parse /proc/pid/maps
+    if (!ctx->pme_head) ctx->pme_head = build_pme_list(ctx->pid); // already built if attaching
+    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+    ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     
+    // quick debug info about addresses/paths we found
+    ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
+    debug("found memory maps... binary (%s): %p-%p", bin_pme->name, bin_pme->base, bin_pme->end);
+    if (libc_pme) {
+        char *name = libc_pme->name;
+        ctx->libc_path = name;
+        if (!name) name = "<UNKNOWN>";
+        debug2(", libc (%s): %p-%p", name, libc_pme->base, libc_pme->end);
+    }
+    debug2("\n");
+
+    // print the type of binary etc
+    if (ctx->target_is_dynamic) {
+        verbose(COLOR_RESET_BOLD "Dynamically-linked");
+        if (ctx->target_is_stripped) verbose(", stripped");
+        verbose(" binary")
+
+        if (libc_pme && libc_pme->name) {
+            char *ptr = get_libc_version(libc_pme->name);
+            char *libc_version = ptr;
+            if (!ptr) libc_version = "???";
+            verbose(" using glibc version %s (%s)\n" COLOR_RESET, libc_version, libc_pme->name);
+            ctx->libc_version = ptr;
+        } else { verbose("\n"); }
+    } else {
+        verbose(COLOR_RESET_BOLD "Statically-linked");
+        if (ctx->target_is_stripped) verbose(", stripped");
+        verbose(" binary\n" COLOR_RESET);
+    }
+
+    // now that we know the base addresses, calculate offsets
+    calculate_bp_addrs(ctx, ctx->pre_analysis_bps);
+
+    // final attempts to get symbol information (funcid + parse --symbol)
+    evaluate_symbol_defs(ctx, ctx->pre_analysis_bps);
+    verbose("\n");
+
+    // install breakpoints
+    int k = 0;
+    Breakpoint *bp;
+    while (1) {
+        bp = (ctx->pre_analysis_bps)[k++];
+        if (!bp) break;
+        install_breakpoint(ctx, bp);
+    }
+}
+
+
+// returns child PID
+int start_process(HeaptraceContext *ctx) {
+    int child = fork();
+    if (!child) {
+        // disable ASLR
+        if (personality(ADDR_NO_RANDOMIZE) == -1) {
+            warn("failed to disable aslr for child\n");
+        }
+
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        extern char **environ;
+        if (execvpe(ctx->target_path, ctx->target_argv, environ) == -1) {
+            fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target_path, errno, strerror(errno)); // XXX: not thread safe
+            exit(1);
+        }
+    }
+    return child;
+}
+
+
+void start_debugger(HeaptraceContext *ctx) {
     log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n" COLOR_RESET);
+
+    if (OPT_ATTACH_PID) {
+        ctx->pid = OPT_ATTACH_PID;
+        ctx->pme_head = build_pme_list(ctx->pid);
+        ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+        if (!bin_pme) {
+            fatal("failed to find process %d's binary name. Are you sure you have the right process ID? Does heaptrace have permission to ptrace the target process?\n", OPT_ATTACH_PID);
+            exit(1);
+        }
+        ctx->target_path = bin_pme->name;
+        debug("Found pid %d's ctx->target_path: %s\n", ctx->pid, ctx->target_path);
+    }
     
+    pre_analysis(ctx);
     
     int show_banner = 0;
     ctx->target_is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
@@ -386,154 +488,104 @@ void start_debugger(HeaptraceContext *ctx) {
     }
     log("\n");
 
-    int child = fork();
-    if (!child) {
-        // disable ASLR
-        if (personality(ADDR_NO_RANDOMIZE) == -1) {
-            warn("failed to disable aslr for child\n");
-        }
-
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        extern char **environ;
-        if (execvpe(ctx->target_path, ctx->target_argv, environ) == -1) {
-            fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target_path, errno, strerror(errno)); // XXX: not thread safe
+    if (!OPT_ATTACH_PID) {
+        ctx->pid = start_process(ctx);
+        debug("Started target process in PID %d\n", ctx->pid);
+    } else {
+        ctx->pid = OPT_ATTACH_PID;
+        info("Attaching to target process PID %d...\n", ctx->pid);
+        if (ptrace(PTRACE_ATTACH, ctx->pid, NULL, NULL) == -1) {
+            fatal("Failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
             exit(1);
         }
-    } else {
-        ProcMapsEntry *pme_head;
+        log("\n");
+    }
 
-        int status;
-        //ctx->should_map_syms = !ctx->target_is_dynamic;
-        ctx->should_map_syms = 0;
-        ctx->pid = child;
+    //ctx->should_map_syms = !ctx->target_is_dynamic;
+    int set_auxv_bp = !OPT_ATTACH_PID; // XXX: this is confusing. refactor later.
+    ctx->should_map_syms = !set_auxv_bp;
 
-        int first_signal = 1; // XXX: this is confusing. refactor later.
-        debug("Started target process in PID %d\n", child);
+    while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0)) {
+        // update ctx
+        ctx->status16 = ctx->status >> 16;
+        ctx->code = (ctx->status >> 8) & 0xffff;
 
-        while(waitpid(child, &status, 0)) {
-            // update ctx
-            ctx->status = status;
-            ctx->status16 = status >> 16;
-            ctx->code = (status >> 8) & 0xffff;
+        // make sure it catches any fork()/vfork()/clone()/exec()
+        ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);
 
-            if (OPT_FOLLOW_FORK) {
-                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);
-            } else
-                ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEEXEC);
+        struct user_regs_struct regs;
+        ptrace(PTRACE_GETREGS, ctx->pid, 0, &regs);
 
-            struct user_regs_struct regs;
-            ptrace(PTRACE_GETREGS, child, 0, &regs);
+        if (set_auxv_bp) {
+            set_auxv_bp = 0;
 
-            if (first_signal) {
-                first_signal = 0;
-
-                debug("At first signal. Resolving auxiliary vector AT_ENTRY...\n");
-                ctx->target_at_entry = get_auxv_entry(child);
-                ASSERT(ctx->target_at_entry, "unable to locate at_entry auxiliary vector. Please report this.");
-                // temporary solution is to uncomment the should_map_syms = !ctx->target_is_dynamic
-                // see blame for this commit, or see commit after commit 2394278.
-                
-                Breakpoint *bp_entry = (Breakpoint *)malloc(sizeof(struct Breakpoint));
-                bp_entry->name = "_entry";
-                bp_entry->addr = ctx->target_at_entry;
-                bp_entry->pre_handler = _pre_entry;
-                bp_entry->pre_handler_nargs = 0;
-                bp_entry->post_handler = 0;
-                install_breakpoint(ctx, bp_entry);
-                ctx->bp_entry = bp_entry;
-            }
-
-            if (WIFEXITED(status) || WIFSIGNALED(status) || status == STATUS_SIGSEGV || status == 0x67f) {
-                end_debugger(ctx, 0);
-            } else if (status == 0x57f) { /* status SIGTRAP */ 
-                _check_breakpoints(ctx);
-            } else if (status >> 16 == PTRACE_EVENT_FORK || status >> 16 == PTRACE_EVENT_VFORK || status >> 16 == PTRACE_EVENT_CLONE) { /* fork, vfork, or clone */
-                long newpid;
-                ptrace(PTRACE_GETEVENTMSG, child, NULL, &newpid);
-                //ptrace(PTRACE_DETACH, child, NULL, SIGSTOP);
-                //_remove_breakpoints(child, 0);
-                //ptrace(PTRACE_CONT, child, NULL, NULL);
-
-                if (OPT_FOLLOW_FORK) {
-                    log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%d). Following fork...\n\n", child, newpid);
-                    ptrace(PTRACE_DETACH, child, NULL, SIGCONT);
-                    child = newpid;
-                    ctx->pid = newpid;
-                    ptrace(PTRACE_SETOPTIONS, newpid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
-                    //ptrace(PTRACE_CONT, newpid, 0L, 0L);
-                } else {
-                    debug("detected process fork, use --follow-fork to folow it. Parent PID is %d, child PID is %d.\n", child, newpid);
-                    ptrace(PTRACE_DETACH, newpid, NULL, SIGSTOP);
-                    // XXX: There seems to be some kind of race condition here. The parent process randomly continues like a tenth of the time.
-                    // As a stopgap solution I put the if(OPT_FOLLOW_FORK) around the ptrace(PTRACE_SETOPTIONS, ...) right after the while() loop start.
-                    // But ideally we print out when there's a fork as shown above to that the user knows to use -F
-                    //ptrace(PTRACE_CONT, child, 0L, 0L);
-                }
-            } else if (status >> 16 == PTRACE_EVENT_EXEC) {
-                debug("Detected exec() call, detaching...\n");
-                end_debugger(ctx, 1);
-            } else {
-                debug("warning: hit unknown status code %d\n", status);
-            }
-
-            if (ctx->should_map_syms) {
-                ctx->should_map_syms = 0;
-
-                // parse /proc/pid/maps
-                pme_head = build_pme_list(child);
-                ctx->pme_head = pme_head;
-                ProcMapsEntry *bin_pme = pme_walk(pme_head, PROCELF_TYPE_BINARY);
-                ProcMapsEntry *libc_pme = pme_walk(pme_head, PROCELF_TYPE_LIBC);
-                
-                // quick debug info about addresses/paths we found
-                ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
-                debug("found memory maps... binary (%s): %p-%p", bin_pme->name, bin_pme->base, bin_pme->end);
-                if (libc_pme) {
-                    char *name = libc_pme->name;
-                    ctx->libc_path = name;
-                    if (!name) name = "<UNKNOWN>";
-                    debug2(", libc (%s): %p-%p", name, libc_pme->base, libc_pme->end);
-                }
-                debug2("\n");
-
-                // print the type of binary etc
-                if (ctx->target_is_dynamic) {
-                    verbose(COLOR_RESET_BOLD "Dynamically-linked");
-                    if (ctx->target_is_stripped) verbose(", stripped");
-                    verbose(" binary")
-
-                    if (libc_pme && libc_pme->name) {
-                        char *ptr = get_libc_version(libc_pme->name);
-                        char *libc_version = ptr;
-                        if (!ptr) libc_version = "???";
-                        verbose(" using glibc version %s (%s)\n" COLOR_RESET, libc_version, libc_pme->name);
-                        ctx->libc_version = ptr;
-                    } else { verbose("\n"); }
-                } else {
-                    verbose(COLOR_RESET_BOLD "Statically-linked");
-                    if (ctx->target_is_stripped) verbose(", stripped");
-                    verbose(" binary\n" COLOR_RESET);
-                }
-
-                // now that we know the base addresses, calculate offsets
-                calculate_bp_addrs(ctx, bps);
-
-                // final attempts to get symbol information (funcid + parse --symbol)
-                evaluate_symbol_defs(ctx, bps);
-                verbose("\n");
-
-                // install breakpoints
-                int k = 0;
-                while (1) {
-                    bp = bps[k++];
-                    if (!bp) break;
-                    install_breakpoint(ctx, bp);
-                }
-            }
-
-            ptrace(PTRACE_CONT, child, NULL, NULL);
+            debug("resolving auxiliary vector AT_ENTRY...\n");
+            ctx->target_at_entry = get_auxv_entry(ctx->pid);
+            ASSERT(ctx->target_at_entry, "unable to locate at_entry auxiliary vector. Please report this.");
+            // temporary solution is to uncomment the should_map_syms = !ctx->target_is_dynamic
+            // see blame for this commit, or see commit after commit 2394278.
+            
+            Breakpoint *bp_entry = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+            bp_entry->name = "_entry";
+            bp_entry->addr = ctx->target_at_entry;
+            bp_entry->pre_handler = _pre_entry;
+            bp_entry->pre_handler_nargs = 0;
+            bp_entry->post_handler = 0;
+            install_breakpoint(ctx, bp_entry);
+            ctx->bp_entry = bp_entry;
         }
 
-        warn("while loop exited. Please report this. Status: %d, exit status: %d\n", status, WEXITSTATUS(status));
+        if (WIFEXITED(ctx->status) || WIFSIGNALED(ctx->status) || ctx->status == STATUS_SIGSEGV || ctx->status == 0x67f) {
+            debug("received an exit status, goodbye!\n");
+            end_debugger(ctx, 0);
+        } else if (ctx->status == 0x57f) { /* status SIGTRAP */ 
+            _check_breakpoints(ctx);
+            if (!KEEP_RUNNING) {
+                debug("received a SIGTRAP and !KEEP_RUNNING\n");
+                break;
+            }
+        } else if (ctx->status >> 16 == PTRACE_EVENT_FORK || ctx->status >> 16 == PTRACE_EVENT_VFORK || ctx->status >> 16 == PTRACE_EVENT_CLONE) { /* fork, vfork, or clone */
+            long newpid;
+            ptrace(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
+
+            if (OPT_FOLLOW_FORK) {
+                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%d). Following fork...\n\n", ctx->pid, newpid);
+                _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
+                ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+
+                ctx->pid = newpid;
+                ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
+                //ptrace(PTRACE_CONT, newpid, 0L, 0L);
+            } else {
+                debug("detected process fork, use --follow-fork to folow it. Parent PID is %d, child PID is %d.\n", ctx->pid, newpid);
+                // XXX: this is a hack because it needs a context obj. Long 
+                // term we will make a another ctx object for each fork and 
+                // just pass that in
+                uint oldpid = ctx->pid;
+                ctx->pid = newpid;
+                _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
+                ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+                kill(ctx->pid, SIGCONT);
+                ctx->pid = oldpid;
+            }
+        } else if (ctx->status16 == PTRACE_EVENT_EXEC) {
+            debug("Detected exec() call, detaching...\n");
+            end_debugger(ctx, 1);
+        } else {
+            debug("warning: hit unknown status code %d (16: %d)\n", ctx->status, ctx->status16);
+        }
+
+        if (ctx->should_map_syms) {
+            map_syms(ctx);
+        }
+
+        ptrace(PTRACE_CONT, ctx->pid, NULL, NULL);
+    }
+
+    if (KEEP_RUNNING) {
+        warn("while loop exited. Please report this. Status: %d, exit status: %d\n", ctx->status, WEXITSTATUS(ctx->status));
+    } else {
+        KEEP_RUNNING = 1; // prevent end_debugger() race condition
+        end_debugger(ctx, 1);
     }
 }

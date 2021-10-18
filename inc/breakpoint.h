@@ -19,6 +19,11 @@
 #ifndef BREAKPOINT_H
 #define BREAKPOINT_H
 
+#define BREAKPOINT_OPT_REMOVE 1
+#define BREAKPOINT_OPT_UNREGISTER 2
+#define BREAKPOINT_OPT_FREE 4
+#define BREAKPOINT_OPTS_ALL (BREAKPOINT_OPT_REMOVE | BREAKPOINT_OPT_UNREGISTER | BREAKPOINT_OPT_FREE)
+
 typedef struct Breakpoint {
     char *name;
     uint64_t addr;
@@ -32,7 +37,7 @@ typedef struct Breakpoint {
 } Breakpoint;
 
 void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp);
-void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int should_break);
-void _remove_breakpoints(HeaptraceContext *ctx, int should_break);
+void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int opts);
+void _remove_breakpoints(HeaptraceContext *ctx, int opts);
 
 #endif

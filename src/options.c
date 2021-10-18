@@ -5,6 +5,7 @@
 #include <getopt.h>
 
 #include "logging.h"
+#include "main.h"
 #include "options.h"
 #include "heap.h"
 #include "debugger.h"
@@ -25,15 +26,23 @@ static struct option long_options[] = {
     {"break-after", required_argument, NULL, 'B'},
 
     {"symbols", required_argument, NULL, 's'},
-    {"syms", required_argument, NULL, 's'},
     {"symbol", required_argument, NULL, 's'},
+    {"syms", required_argument, NULL, 's'},
+    {"sym", required_argument, NULL, 's'},
     
+    {"attach", required_argument, NULL, 'p'},
+    {"attach-pid", required_argument, NULL, 'p'},
+    {"pid", required_argument, NULL, 'p'},
+    {"process", required_argument, NULL, 'p'},
+    {"process", required_argument, NULL, 'p'},
+
     {"follow-fork", no_argument, NULL, 'F'},
     {"follow", no_argument, NULL, 'F'},
 
     {"gdb-path", no_argument, NULL, 'G'},
 
     {"output", required_argument, NULL, 'o'},
+    {"out", required_argument, NULL, 'o'},
 
     {NULL, 0, NULL, 0}
 };
@@ -69,7 +78,7 @@ int parse_args(int argc, char *argv[]) {
     int opt;
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:G:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v': {
                 OPT_VERBOSE = 1;
@@ -119,6 +128,12 @@ int parse_args(int argc, char *argv[]) {
                 break;
             }
 
+            case 'p': {
+                char *endp;
+                OPT_ATTACH_PID = strtoul(optarg, &endp, 10);
+                break;
+            }
+
             case 'o': {
                 FILE *_output_file = fopen(optarg, "a+");
                 if (!_output_file) {
@@ -136,7 +151,7 @@ int parse_args(int argc, char *argv[]) {
         }
     }
 
-    if (optind == argc) {
+    if (!OPT_ATTACH_PID && optind == argc) {
         fatal("you must specify a binary to execute.\n");
         exit_failure(argv);
     }

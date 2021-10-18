@@ -20,7 +20,7 @@ void free_pme_list(ProcMapsEntry *first_pme) {
 }
 
 
-ProcMapsEntry *build_pme_list(int pid) {
+char *get_path_by_pid(int pid) {
     // get the full path to the binary
     char *exepath = malloc(MAX_PATH_SIZE + 1);
     char *fname = malloc(MAX_PATH_SIZE + 1);
@@ -28,6 +28,12 @@ ProcMapsEntry *build_pme_list(int pid) {
     int nbytes = readlink(exepath, fname, MAX_PATH_SIZE);
     fname[nbytes] = '\x00';
     free(exepath);
+    return fname;
+}
+
+
+ProcMapsEntry *build_pme_list(int pid) {
+    char *fname = get_path_by_pid(pid);
 
     // get the path to the /proc/pid/maps file
     char *mapspath = malloc(MAX_PATH_SIZE + 1);

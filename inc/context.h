@@ -20,6 +20,7 @@ typedef struct HeaptraceContext {
     SymbolEntry *target_se_head;
 
     // pre-analysis settings
+    Breakpoint **pre_analysis_bps;
     char *target_interp_name;
     uint target_is_stripped;
     uint target_is_dynamic;
