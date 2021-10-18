@@ -17,6 +17,12 @@
 #include "proc.h"
 #include "main.h"
 
+// XXX: a bit of a hack. Apparently sigabbrev_np doesn't exist in some common 
+// glibc versions.
+#ifndef sigabbrev_np
+#define sigabbrev_np strsignal
+#endif
+
 static int in_breakpoint = 0;
 
 int OPT_FOLLOW_FORK = 0;
