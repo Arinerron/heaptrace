@@ -13,6 +13,8 @@
 char *symbol_defs_str = "";
 
 static struct option long_options[] = {
+    {"help", no_argument, NULL, 'h'},
+
     {"verbose", no_argument, NULL, 'v'},
     
     {"debug", no_argument, NULL, 'D'}, // hidden, for dev use only
@@ -48,7 +50,7 @@ static struct option long_options[] = {
 };
 
 
-static void exit_failure(char *argv[]) {
+static void show_help(char *argv[]) {
     //fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
 
     #define IND "\t  " COLOR_RESET
@@ -111,7 +113,7 @@ static void exit_failure(char *argv[]) {
 
         PND "-G, --gdb-path <path>\n"
         IND "Tells heaptrace to use the path to gdb specified \n"
-        IND "in `path` instead of /usr/bin/gdb (default)\n"
+        IND "in `path` instead of /usr/bin/gdb (default).\n"
         "\n"
         "\n"
 
@@ -130,11 +132,16 @@ static void exit_failure(char *argv[]) {
         "\n"
 
         PND "-v, --verbose\n"
-        IND "Print verbose information such as line numbers in\n"
+        IND "Prints verbose information such as line numbers in\n"
         IND "source code given the required debugging info is\n"
         IND "stored in the ELF.\n"
+        "\n"
+        "\n"
+
+        PND "-h, --help\n"
+        IND "Shows this help menu.\n"
+        "\n"
     ), argv[0], argv[0], argv[0]);
-    exit(EXIT_FAILURE);
 }
 
 
@@ -162,8 +169,14 @@ int parse_args(int argc, char *argv[]) {
     int opt;
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "vFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
         switch (opt) {
+            case 'h': {
+                show_help(argv);
+                exit(0);
+                break;
+            }
+
             case 'v': {
                 OPT_VERBOSE = 1;
                 break;
@@ -222,7 +235,7 @@ int parse_args(int argc, char *argv[]) {
                 FILE *_output_file = fopen(optarg, "a+");
                 if (!_output_file) {
                     fatal("failed to open logging file \"%s\".\n", optarg);
-                    exit_failure(argv);
+                    show_help(argv);
                 } else {
                     output_fd = _output_file;
                 }
@@ -230,14 +243,15 @@ int parse_args(int argc, char *argv[]) {
             }
 
             default: {
-                exit_failure(argv);
+                show_help(argv);
             }
         }
     }
 
     if (!OPT_ATTACH_PID && optind == argc) {
         fatal("you must specify a binary to execute.\n");
-        exit_failure(argv);
+        show_help(argv);
+        exit(1);
     }
 
     return optind;
