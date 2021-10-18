@@ -94,7 +94,7 @@ ProcMapsEntry *build_pme_list(int pid) {
             pme->end = cur_section_end;
         }
 
-        debug("PME: \"%s\" (%d) = %p - %p\n", pme->name, pme->pet, pme->base, pme->end);
+        debug("PME: \"%s\" (%d) = " PRIx64 " - " PRIx64 "\n", pme->name, pme->pet, pme->base, pme->end);
     }
 
     fclose(f);

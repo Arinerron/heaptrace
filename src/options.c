@@ -333,7 +333,7 @@ parsevalue:;
 
                 if (c == '+' || c == '-') _sym_sign = c;
                 else if (c == ',' || c == ';' || c == '\x00') {
-                    debug("parsed arg sym \"%s\" to %p\n", sym_name, sym_val);
+                    debug("parsed arg sym \"%s\" to " PRIx64 "\n", sym_name, sym_val);
                     int _resolved = 0;
                     // terminate cur var setting
                     int k = 0;
@@ -357,7 +357,7 @@ parsevalue:;
                     }
 
                     if (!_resolved) {
-                        warn("unable to resolve configured symbol name \"%s\" (address %p), ignoring...\n", sym_name, sym_val);
+                        warn("unable to resolve configured symbol name \"%s\" (address " PRIx64 "), ignoring...\n", sym_name, sym_val);
                     }
 
                     _next_is_sym_name = 1; // because we want to ignore whitespace
