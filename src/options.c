@@ -51,15 +51,12 @@ static struct option long_options[] = {
 
 
 static void show_help(char *argv[]) {
-    //fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
-
     #define IND "\t  " COLOR_RESET
     #define PND "  " COLOR_LOG
     fprintf(stderr, (
         COLOR_LOG_BOLD "Usage:\n"
-        PND "%s [options...] <target>\n"
-        PND "%s [options...] -- <target> [args...]\n"
-        PND "%s [options...] -p/--attach <pid>\n"
+        PND "%s [options...] <target> [args...]\n"
+        PND "%s [options...] --attach <pid>\n"
         "\n"
 
         COLOR_LOG_BOLD "Options:\n"
@@ -169,7 +166,7 @@ int parse_args(int argc, char *argv[]) {
     int opt;
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "hvFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "+hvFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'h': {
                 show_help(argv);
