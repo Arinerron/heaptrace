@@ -259,26 +259,24 @@ void evaluate_funcid(char *path, SymbolEntry *se_head) {
 
 
 void end_debugger(HeaptraceContext *ctx, int should_detach) {
-    int status = ctx->status;
     int _was_sigsegv = 0;
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
-    int code = (status >> 8) & 0xffff;
 
     if (ctx->status16 == PTRACE_EVENT_EXEC) {
         log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ", code);
-    } else if ((status == STATUS_SIGSEGV) || status == 0x67f || (WIFSIGNALED(status) && !WIFEXITED(status))) { // some other abnormal code
+        log("." COLOR_RESET " ", ctx->code);
+    } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
-        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(code), code);
+        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(ctx->code), ctx->code);
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ", code);
+        log("." COLOR_RESET " ", ctx->code);
         _was_sigsegv = 1;
     }
 
-    if (WCOREDUMP(status)) {
+    if (WCOREDUMP(ctx->status)) {
         log(COLOR_ERROR "Core dumped. " COLOR_LOG);
     }
 
@@ -416,6 +414,7 @@ void start_debugger(HeaptraceContext *ctx) {
             // update ctx
             ctx->status = status;
             ctx->status16 = status >> 16;
+            ctx->code = (status >> 8) & 0xffff;
 
             if (OPT_FOLLOW_FORK) {
                 ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);

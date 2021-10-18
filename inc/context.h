@@ -32,6 +32,7 @@ typedef struct HeaptraceContext {
     uint pid;
     int status; // waitpid
     int status16; // waitpid >> 16
+    int code; // (status >> 8) & 0xffff
     uint should_map_syms;
 
     char *between_pre_and_post;
