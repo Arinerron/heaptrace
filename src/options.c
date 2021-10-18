@@ -49,7 +49,91 @@ static struct option long_options[] = {
 
 
 static void exit_failure(char *argv[]) {
-    fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
+    //fprintf(stderr, "Usage: %s [-v] [-e/--environment <name=value>] [-b/--break <number>] [-B/--break-after <number>] [-s/--symbols <sym_defs>] [-F/--follow-fork] [-G/--gdb-path <path>] [-o/--output <filename>] -- <target> [args...]\n", argv[0]);
+
+    #define IND "\t  " COLOR_RESET
+    #define PND "  " COLOR_LOG
+    fprintf(stderr, (
+        COLOR_LOG_BOLD "Usage:\n"
+        PND "%s [options...] <target>\n"
+        PND "%s [options...] -- <target> [args...]\n"
+        PND "%s [options...] -p/--attach <pid>\n"
+        "\n"
+        "\n"
+
+        PND "-e <name=value>, --environ=<name=value>, --environment=<name=value>\n"
+        IND "Sets a single environmental variable. Useful for \n"
+        IND "setting runtime settings for the target such as \n"
+        IND "LD_PRELOAD=./libc.so.6 without having them affect \n"
+        IND "heaptrace's runtime configuration.\n"
+        "\n"
+        "\n"
+
+        PND "-s <sym_defs>, --symbols=<sym_defs>\n"
+        IND "Override the values heaptrace detects for the \n"
+        IND "malloc/calloc/free/realloc/reallocarray symbols. \n"
+        IND "Useful if heaptrace fails to automatically \n"
+        IND "identify heap functions in a stripped binary. See \n"
+        IND "the wiki for more info.\n"
+        "\n"
+        "\n"
+
+        PND "-b <number>, --break=<number>, --break-at=<number>\n"
+        IND "Send SIGSTOP to the process at heap operation \n"
+        IND "specified in `number` (before executing the heap \n"
+        IND "function) and attach the GNU debugger (gdb) to the \n"
+        IND "process.\n"
+        "\n"
+        IND "Also supports \"segfault\" in the `number` arg to \n"
+        IND "launch gdb if the process exits abnormally \n"
+        IND "(SIGSEGV, abort(), etc). And, \"main\" will break at \n"
+        IND "the entry point to the binary (the binary's \n"
+        IND "auxiliary vector).\n"
+        "\n"
+        "\n"
+
+        PND "-B <number>, --break-after=<number>\n"
+        IND "Similar to `--break`. Replaces the tracer \n"
+        IND "process with gdb, but only after the heap function \n"
+        IND "returns.\n"
+        "\n"
+        "\n"
+
+        PND "-F, --follow-fork, --follow\n"
+        IND "Tells heaptrace to detach the parent and follow \n"
+        IND "the child if the target calls fork(), vfork(), or \n"
+        IND "clone().\n"
+        "\n"
+        IND "The default behavior is to detatch the child and \n"
+        IND "only trace the parent.\n"
+        "\n"
+        "\n"
+
+        PND "-G, --gdb-path <path>\n"
+        IND "Tells heaptrace to use the path to gdb specified \n"
+        IND "in `path` instead of /usr/bin/gdb (default)\n"
+        "\n"
+        "\n"
+
+        PND "-p, --attach, --pid <pid>\n"
+        IND "Tells heaptrace to attach to the specified pid \n"
+        IND "instead of running the binary from the `target` \n"
+        IND "argument. Note that if you specify this argument \n"
+        IND "you do not have to specify `target`.\n"
+        "\n"
+        "\n"
+
+        PND "-o <file>, --output=<file>\n"
+        IND "Write the heaptrace output to `file` instead of \n"
+        IND "/dev/stderr (which is the default output path).\n"
+        "\n"
+        "\n"
+
+        PND "-v, --verbose\n"
+        IND "Print verbose information such as line numbers in\n"
+        IND "source code given the required debugging info is\n"
+        IND "stored in the ELF.\n"
+    ), argv[0], argv[0], argv[0]);
     exit(EXIT_FAILURE);
 }
 
