@@ -17,12 +17,6 @@
 #include "proc.h"
 #include "main.h"
 
-// XXX: a bit of a hack. Apparently sigabbrev_np doesn't exist in some common 
-// glibc versions.
-#ifndef sigabbrev_np
-#define sigabbrev_np strsignal
-#endif
-
 static int in_breakpoint = 0;
 
 int OPT_FOLLOW_FORK = 0;
@@ -273,29 +267,33 @@ uint evaluate_funcid(HeaptraceFile *hf) {
 void end_debugger(HeaptraceContext *ctx, int should_detach) {
     if (ctx == FIRST_CTX) FIRST_CTX = 0; // prevent race condition on free()
 
-    int _was_sigsegv = 0;
+    uint _was_sigsegv = 0;
+    uint _show_newline = 0;
     log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
 
     if (ctx->status16 == PTRACE_EVENT_EXEC) {
         log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
         should_detach = 1;
+        _show_newline = 1;
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
         log("." COLOR_RESET " ");
     } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
-        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(ctx->code), ctx->code);
+        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "%d" COLOR_ERROR " (" COLOR_ERROR_BOLD "%s" COLOR_ERROR ")", ctx->code, strsignal(ctx->code));
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
         log("." COLOR_RESET " ");
         _was_sigsegv = 1;
+        _show_newline = 1;
     }
 
     if (WCOREDUMP(ctx->status)) {
         log(COLOR_ERROR "Core dumped. " COLOR_LOG);
     }
 
-    log("\n");
+    if (_show_newline) log("\n");
+
     show_stats(ctx);
 
     if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
