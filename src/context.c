@@ -16,8 +16,8 @@ void *free_ctx(HeaptraceContext *ctx) {
     free_pme_list(ctx->pme_head);
     free(ctx->libc_version);
     free(ctx->target_interp_name);
-    free_se(ctx->target_se_head);
-    free_se(ctx->libc_se_head);
+    free_se_list(ctx->target_se_head);
+    free_se_list(ctx->libc_se_head);
 
     free(ctx);
 }

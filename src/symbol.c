@@ -321,7 +321,7 @@ SymbolEntry *find_se_name(SymbolEntry *se_head, char *name) {
 }
 
 
-void free_se(SymbolEntry *se_head) {
+void free_se_list(SymbolEntry *se_head) {
     SymbolEntry *cse = se_head;
     while (1) {
         if (!cse) break;

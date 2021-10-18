@@ -37,6 +37,6 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]);
 SymbolEntry *any_se_type(SymbolEntry *se_head, int type);
 int all_se_type(SymbolEntry *se_head, int type);
 SymbolEntry *find_se_name(SymbolEntry *se_head, char *name);
-void free_se(SymbolEntry *se_head);
+void free_se_list(SymbolEntry *se_head);
 
 #endif
