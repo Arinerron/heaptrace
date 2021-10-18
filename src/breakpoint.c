@@ -25,7 +25,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
             errno = 0;
             ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
-                warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %lu: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
+                warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %u: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
             }
             return;
         }

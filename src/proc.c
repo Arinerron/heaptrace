@@ -48,24 +48,22 @@ ProcMapsEntry *build_pme_list(int pid) {
     ProcMapsEntry *pme_head = 0;
     ProcMapsEntry *pme = 0;
 
-    char *cur_fname = malloc(MAX_PATH_SIZE + 1);
+    char *cur_fname = malloc(MAX_PATH_SIZE + 2);
     uint64_t cur_section_base = 0;
     uint64_t cur_section_end = 0;
     uint64_t _tmp[9]; // sorry I'm a terible programmer
     while (1) {
-        if (fscanf(f, "%llx-%llx ", &cur_section_base, &cur_section_end) == EOF) { // 7f738fb9f000-7f738fba0000
+        #define WH "%*[ \t]c" // whitespace
+        if (fscanf(f, "%lx-%lx" WH, &cur_section_base, &cur_section_end) == EOF) { // 7f738fb9f000-7f738fba0000
             break;
         }
 
-        fscanf(f, "%c%c%c%c", &_tmp, &_tmp, &_tmp, &_tmp); // rw-p
-        fscanf(f, " ");
-        fscanf(f, "%8c", &_tmp); // 000a9000
-        fscanf(f, " ");
-        fscanf(f, "%d:%d", &_tmp, &_tmp); // 103:08
-        fscanf(f, " ");
+        fscanf(f, "%*s" WH);
+        fscanf(f, "%*s" WH);
+        fscanf(f, "%*d:%*d" WH); // 103:08
+        fscanf(f, "%*s" WH);
 
-        fscanf(f, "%" PRIu64 "%*[ \t]c", &_tmp, &_tmp);
-        memset(cur_fname, 0, MAX_PATH_SIZE);
+        memset(cur_fname, 0, MAX_PATH_SIZE + 1);
         fscanf(f, "%4096[^\n]s\n", cur_fname); // 18615725
         if (!pme || strcmp(pme->name, cur_fname)) { // if the name changed or first run
             pme = calloc(1, sizeof(ProcMapsEntry));

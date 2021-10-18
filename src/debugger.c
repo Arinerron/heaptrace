@@ -563,7 +563,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
                 //ptrace(PTRACE_CONT, newpid, 0L, 0L);
             } else {
-                debug("detected process fork, use --follow-fork to folow it. Parent PID is %lu, child PID is %lu.\n", ctx->pid, newpid);
+                debug("detected process fork, use --follow-fork to folow it. Parent PID is %u, child PID is %lu.\n", ctx->pid, newpid);
                 // XXX: this is a hack because it needs a context obj. Long 
                 // term we will make a another ctx object for each fork and 
                 // just pass that in
