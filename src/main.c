@@ -20,7 +20,7 @@
 #include "context.h"
 
 
-uint64_t OPT_ATTACH_PID = 0;
+uint OPT_ATTACH_PID = 0;
 uint KEEP_RUNNING = 1;
 
 HeaptraceContext *FIRST_CTX = 0;

@@ -187,7 +187,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                 while (1) {
                     if (!cse) break;
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
-                        debug("rela dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                        debug("rela dyn plt: st_name: %s @ " U64T " (%d) rela idx %d\n", name, (uint64_t)rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
@@ -240,7 +240,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                 while (1) {
                     if (!cse) break;
                     if (((!cse->offset && rela_offsets[ji]) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
-                        debug("dyn plt: st_name: %s @ 0x%x (%d) rela idx %d\n", name, rela_offsets[ji], sym.st_shndx, ji);
+                        debug("dyn plt: st_name: %s @ " U64T " (shndx=%d) rela idx %d\n", name, (uint64_t)rela_offsets[ji], sym.st_shndx, ji);
                         cse->type = SE_TYPE_DYNAMIC_PLT;
                         cse->offset = (uint64_t)rela_offsets[ji];
                         cse->section = sym.st_shndx;
@@ -268,7 +268,7 @@ SymbolEntry *lookup_symbols(HeaptraceContext *ctx, char *fname, char *names[]) {
                 while (1) {
                     if (!cse) break;
                     if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
-                        debug("tab: st_name: %s @ 0x%x\n", name, sym.st_value);
+                        debug("tab: st_name: %s @ " U64T "\n", name, (uint64_t)sym.st_value);
                         cse->type = SE_TYPE_STATIC;
                         //cse->offset = (uint64_t)(sym.st_value);
                         cse->offset = (uint64_t)(sym.st_value) - load_addr;

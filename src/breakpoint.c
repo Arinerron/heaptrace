@@ -11,7 +11,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     }
 
     uint64_t orig_data = (uint64_t)ptrace(PTRACE_PEEKDATA, ctx->pid, vaddr, NULL);
-    debug("installing \"%s\" breakpoint in child at " U64T ". Original data: 0x%x\n", bp->name, vaddr, orig_data);
+    debug("installing \"%s\" breakpoint in child at " U64T ". Original data: " U64T "\n", bp->name, vaddr, orig_data);
 
     bp->_is_inside = 0;
     bp->_bp = 0;
@@ -25,7 +25,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
             errno = 0;
             ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
-                warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %ld: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
+                warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %lu: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
             }
             return;
         }

@@ -277,12 +277,12 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ", ctx->code);
+        log("." COLOR_RESET " ");
     } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
         log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "SIG%s" COLOR_ERROR " (" COLOR_ERROR_BOLD "%d" COLOR_ERROR ")", sigabbrev_np(ctx->code), ctx->code);
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ", ctx->code);
+        log("." COLOR_RESET " ");
         _was_sigsegv = 1;
     }
 
@@ -555,7 +555,7 @@ void start_debugger(HeaptraceContext *ctx) {
             ptrace(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
 
             if (OPT_FOLLOW_FORK) {
-                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%d). Following fork...\n\n", ctx->pid, newpid);
+                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%ld). Following fork...\n\n", ctx->pid, newpid);
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
                 ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
 
@@ -563,7 +563,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
                 //ptrace(PTRACE_CONT, newpid, 0L, 0L);
             } else {
-                debug("detected process fork, use --follow-fork to folow it. Parent PID is %ld, child PID is %ld.\n", ctx->pid, newpid);
+                debug("detected process fork, use --follow-fork to folow it. Parent PID is %lu, child PID is %lu.\n", ctx->pid, newpid);
                 // XXX: this is a hack because it needs a context obj. Long 
                 // term we will make a another ctx object for each fork and 
                 // just pass that in

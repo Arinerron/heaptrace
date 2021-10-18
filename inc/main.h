@@ -5,7 +5,7 @@
 #include "context.h"
 
 extern HeaptraceContext *FIRST_CTX;
-extern uint64_t OPT_ATTACH_PID;
+extern uint OPT_ATTACH_PID;
 extern uint KEEP_RUNNING;
 
 #endif
