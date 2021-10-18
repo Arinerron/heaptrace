@@ -60,7 +60,7 @@ ProcMapsEntry *build_pme_list(int pid) {
 
         fscanf(f, "%*s" WH);
         fscanf(f, "%*s" WH);
-        fscanf(f, "%*d:%*d" WH); // 103:08
+        fscanf(f, "%*x:%*x" WH); // 103:08
         fscanf(f, "%*s" WH);
 
         memset(cur_fname, 0, MAX_PATH_SIZE + 1);
