@@ -61,8 +61,8 @@ static void show_help(char *argv[]) {
         PND "%s [options...] -- <target> [args...]\n"
         PND "%s [options...] -p/--attach <pid>\n"
         "\n"
-        "\n"
 
+        COLOR_LOG_BOLD "Options:\n"
         PND "-e <name=value>, --environ=<name=value>, --environment=<name=value>\n"
         IND "Sets a single environmental variable. Useful for \n"
         IND "setting runtime settings for the target such as \n"
