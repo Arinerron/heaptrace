@@ -11,7 +11,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     }
 
     uint64_t orig_data = (uint64_t)ptrace(PTRACE_PEEKDATA, ctx->pid, vaddr, NULL);
-    debug("installing \"%s\" breakpoint in child at " PRIx64 ". Original data: 0x%x\n", bp->name, vaddr, orig_data);
+    debug("installing \"%s\" breakpoint in child at " U64T ". Original data: 0x%x\n", bp->name, vaddr, orig_data);
 
     bp->_is_inside = 0;
     bp->_bp = 0;
@@ -19,13 +19,13 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
     
     for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
         if (ctx->breakpoints[i]) {
-            ASSERT(ctx->breakpoints[i]->addr != bp->addr, "cannot add two breakpoints with the same address (breakpoints[i] = %s @ " PRIx64 ", bp = %s @ " PRIx64 ")", ctx->breakpoints[i]->name, ctx->breakpoints[i]->addr, bp->name, bp->addr)
+            ASSERT(ctx->breakpoints[i]->addr != bp->addr, "cannot add two breakpoints with the same address (breakpoints[i] = %s @ " U64T ", bp = %s @ " U64T ")", ctx->breakpoints[i]->name, ctx->breakpoints[i]->addr, bp->name, bp->addr)
         } else {
             ctx->breakpoints[i] = bp;
             errno = 0;
             ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
-                warn("heaptrace failed to install \"%s\" breakpoint at " PRIx64 " in process %ld: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
+                warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %ld: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
             }
             return;
         }

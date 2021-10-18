@@ -74,3 +74,5 @@ extern FILE *output_fd;
 
 
 void describe_symbol(void *ptr);
+
+#define U64T "0x%" PRIx64

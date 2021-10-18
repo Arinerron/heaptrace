@@ -99,7 +99,7 @@ FunctionSignature *find_function_signatures(FILE *f) {
 
         //printf("(1) -> %s (%p) - %x (%p)\n", sig->name, sig, sig->offset, sig->offset);
         if (sig->offset) {
-            debug("funcid identified sym \"%s\" at offset " PRIx64 " (i=%d)\n", sig->name, sig->offset, i);
+            debug("funcid identified sym \"%s\" at offset " U64T " (i=%d)\n", sig->name, sig->offset, i);
         }
     }
 

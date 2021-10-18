@@ -196,18 +196,18 @@ static uint64_t calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps) {
         if (ctx->target_is_dynamic && libc_pme && libc_se && libc_se->offset) {
             // prioritize the libc symbols over target's symbols
             addr = libc_pme->base + libc_se->offset;
-            debug(". used dynamic libc addr " PRIx64 "\n", addr);
+            debug(". used dynamic libc addr " U64T "\n", addr);
         } else if (target_se->type == SE_TYPE_STATIC) {
             // static symbol in ELF
             addr = bin_pme->base + target_se->offset;
-            debug(". used static addr " PRIx64 "\n", addr);
+            debug(". used static addr " U64T "\n", addr);
         } else {
             if (target_se->type == SE_TYPE_DYNAMIC || target_se->type == SE_TYPE_DYNAMIC_PLT) {
                 // it's a GOT pointer
                 if (libc_pme) {
                     uint64_t got_ptr = bin_pme->base + target_se->offset;
                     uint64_t got_val = ptrace(PTRACE_PEEKDATA, ctx->pid, got_ptr, NULL);
-                    debug(". used got addr. peeked val=" PRIx64 " at GOT ptr=" PRIx64 " for %s (type=%d)\n", got_val, got_ptr, target_se->name, target_se->type);
+                    debug(". used got addr. peeked val=" U64T " at GOT ptr=" U64T " for %s (type=%d)\n", got_val, got_ptr, target_se->name, target_se->type);
 
                     // check if this is in the PLT or if it's resolved to libc
                     if (target_se->type == SE_TYPE_DYNAMIC_PLT && (got_val >= bin_pme->base && got_val < bin_pme->end)) {
@@ -394,12 +394,12 @@ void map_syms(HeaptraceContext *ctx) {
     
     // quick debug info about addresses/paths we found
     ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
-    debug("found memory maps... binary (%s): " PRIx64 "-" PRIx64, bin_pme->name, bin_pme->base, bin_pme->end);
+    debug("found memory maps... binary (%s): " U64T "-" U64T, bin_pme->name, bin_pme->base, bin_pme->end);
     if (libc_pme) {
         char *name = libc_pme->name;
         ctx->libc_path = name;
         if (!name) name = "<UNKNOWN>";
-        debug2(", libc (%s): " PRIx64 "-" PRIx64, name, libc_pme->base, libc_pme->end);
+        debug2(", libc (%s): " U64T "-" U64T, name, libc_pme->base, libc_pme->end);
     }
     debug2("\n");
 

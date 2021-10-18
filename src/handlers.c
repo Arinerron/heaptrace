@@ -32,7 +32,7 @@ static void _check_heap_ptr_retval(HeaptraceContext *ctx, uint64_t ptr) {
                 || pme->pet == PROCELF_TYPE_STACK) { // possibly return ptr?
             warn_heap("return value is not a heap pointer");
             warn_heap2("this indicates some form of heap corruption");
-            warn_heap2("pointer is inside of section \"%s\" (" PRIx64 "-" PRIx64 ")", pme->name, pme->base, pme->end);
+            warn_heap2("pointer is inside of section \"%s\" (" U64T "-" U64T ")", pme->name, pme->base, pme->end);
         }
     }
 }
