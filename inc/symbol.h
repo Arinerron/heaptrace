@@ -15,6 +15,7 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "util.h"
 #include "context.h"
 
 #define SE_TYPE_UNRESOLVED 0

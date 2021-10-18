@@ -167,7 +167,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
             //printf("rela libc: 0x%x (%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info));
             if (ELF64_R_TYPE(rela.r_info) == R_X86_64_GLOB_DAT) {
                 unsigned int sym_i = ELF64_R_SYM(rela.r_info);
-                ASSERT(sym_i < rela_offsets_sz, "rela: sym_i < rela_offsets_sz");
+                ASSERT(sym_i < rela_offsets_sz, "rela");
                 rela_offsets[sym_i] = rela.r_offset;
             }
         }
@@ -220,7 +220,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
             //printf("rela plt: 0x%x (sym=%d, type=%d)\n", rela.r_offset, ELF64_R_SYM(rela.r_info), ELF64_R_TYPE(rela.r_info));
             if (ELF64_R_TYPE(rela.r_info) == R_X86_64_JUMP_SLOT) {
                 int sym_i = ELF64_R_SYM(rela.r_info);
-                ASSERT(sym_i < rela_offsets_sz, ".plt: sym_i < rela_offsets_sz");
+                ASSERT(sym_i < rela_offsets_sz, ".plt");
                 rela_offsets[sym_i] = rela.r_offset;
             }
         }

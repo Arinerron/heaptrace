@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "util.h"
 #include "proc.h"
 #include "context.h"
 

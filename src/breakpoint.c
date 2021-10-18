@@ -23,7 +23,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
         } else {
             ctx->breakpoints[i] = bp;
             errno = 0;
-            ptrace(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
+            PTRACE(PTRACE_POKEDATA, ctx->pid, vaddr, (orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
             if (errno) {
                 warn("heaptrace failed to install \"%s\" breakpoint at " U64T " in process %u: %s (%d)\n", bp->name, vaddr, ctx->pid, strerror(errno), errno);
             }
@@ -46,9 +46,7 @@ void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int opts) {
     }
     
     if (opts & BREAKPOINT_OPT_REMOVE) {
-        if (ptrace(PTRACE_POKEDATA, ctx->pid, bp->addr, bp->orig_data) == -1) {
-            debug("debug warning: failed to remove bp: %s (%d)\n", strerror(errno), errno);
-        }
+        ptrace(PTRACE_POKEDATA, ctx->pid, bp->addr, bp->orig_data); // ignore error
     }
 
     if (opts & BREAKPOINT_OPT_FREE) free(bp);

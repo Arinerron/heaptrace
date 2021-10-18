@@ -23,7 +23,7 @@ int OPT_FOLLOW_FORK = 0;
 
 void _check_breakpoints(HeaptraceContext *ctx) {
     struct user_regs_struct regs;
-    ptrace(PTRACE_GETREGS, ctx->pid, NULL, &regs);
+    PTRACE(PTRACE_GETREGS, ctx->pid, NULL, &regs);
     uint64_t reg_rip = (uint64_t)regs.rip - 1;
 
     int _was_bp = 0;
@@ -34,11 +34,11 @@ void _check_breakpoints(HeaptraceContext *ctx) {
             if (bp->addr == reg_rip) { // hit the breakpoint
                 _was_bp = 1;
                 //printf("Hit breakpoint %s (0x%x)\n", bp->name, reg_rip);
-                ptrace(PTRACE_POKEDATA, ctx->pid, reg_rip, (uint64_t)bp->orig_data);
+                PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, (uint64_t)bp->orig_data);
 
                 // move rip back by one
                 regs.rip = reg_rip; // NOTE: this is actually $rip-1
-                ptrace(PTRACE_SETREGS, ctx->pid, NULL, &regs);
+                PTRACE(PTRACE_SETREGS, ctx->pid, NULL, &regs);
                 
                 if (!in_breakpoint && !bp->_is_inside && bp->pre_handler) {
                     int nargs = bp->pre_handler_nargs;
@@ -56,7 +56,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                 }
                 
                 // reset breakpoint and continue
-                ptrace(PTRACE_SINGLESTEP, ctx->pid, NULL, NULL);
+                PTRACE(PTRACE_SINGLESTEP, ctx->pid, NULL, NULL);
                 wait(NULL);
 
                 if (!bp->_is_inside) {
@@ -89,7 +89,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                         }
 
                         // reinstall original breakpoint
-                        ptrace(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
+                        PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                     } else { // this is a return value catcher breakpoint
                         Breakpoint *orig_bp = bp->_bp;
                         if (orig_bp) {
@@ -106,7 +106,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     }
                 } else {
                     // reinstall original breakpoint
-                    ptrace(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
+                    PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                 }
 
                 //printf("BREAKPOINT peeked 0x%x at breakpoint 0x%x\n", ptrace(PTRACE_PEEKDATA, pid, reg_rip, 0L), reg_rip);
@@ -299,7 +299,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
     if (should_detach) {
         _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL);
-        ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+        PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
     } else {
         kill(ctx->pid, SIGINT);
     }
@@ -453,7 +453,7 @@ int start_process(HeaptraceContext *ctx) {
             warn("failed to disable aslr for child\n");
         }
 
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        PTRACE(PTRACE_TRACEME, 0, NULL, NULL);
         extern char **environ;
         if (execvpe(ctx->target->path, ctx->target_argv, environ) == -1) {
             fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target->path, errno, strerror(errno)); // XXX: not thread safe
@@ -508,12 +508,6 @@ void start_debugger(HeaptraceContext *ctx) {
         ctx->status16 = ctx->status >> 16;
         ctx->code = (ctx->status >> 8) & 0xffff;
 
-        // make sure it catches any fork()/vfork()/clone()/exec()
-        ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);
-
-        struct user_regs_struct regs;
-        ptrace(PTRACE_GETREGS, ctx->pid, 0, &regs);
-
         if (set_auxv_bp) {
             set_auxv_bp = 0;
 
@@ -544,16 +538,14 @@ void start_debugger(HeaptraceContext *ctx) {
             }
         } else if (ctx->status >> 16 == PTRACE_EVENT_FORK || ctx->status >> 16 == PTRACE_EVENT_VFORK || ctx->status >> 16 == PTRACE_EVENT_CLONE) { /* fork, vfork, or clone */
             long newpid;
-            ptrace(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
+            PTRACE(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
 
             if (OPT_FOLLOW_FORK) {
                 log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%ld). Following fork...\n\n", ctx->pid, newpid);
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
-                ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+                PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
 
                 ctx->pid = newpid;
-                ptrace(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE);
-                //ptrace(PTRACE_CONT, newpid, 0L, 0L);
             } else {
                 debug("detected process fork, use --follow-fork to folow it. Parent PID is %u, child PID is %lu.\n", ctx->pid, newpid);
                 // XXX: this is a hack because it needs a context obj. Long 
@@ -562,7 +554,7 @@ void start_debugger(HeaptraceContext *ctx) {
                 uint oldpid = ctx->pid;
                 ctx->pid = newpid;
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
-                ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
+                PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
                 kill(ctx->pid, SIGCONT);
                 ctx->pid = oldpid;
             }
@@ -587,7 +579,8 @@ void start_debugger(HeaptraceContext *ctx) {
 
         }
 
-        ptrace(PTRACE_CONT, ctx->pid, NULL, NULL);
+        PTRACE(PTRACE_SETOPTIONS, ctx->pid, NULL, PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC);
+        PTRACE(PTRACE_CONT, ctx->pid, NULL, NULL);
     }
 
     if (KEEP_RUNNING) {

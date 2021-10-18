@@ -32,7 +32,7 @@ void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, 
 
         // launch gdb
         _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL); // TODO/XXX: use end_debugger
-        ptrace(PTRACE_DETACH, ctx->pid, NULL, SIGSTOP);
+        PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGSTOP);
 
         char buf[10+1];
         snprintf(buf, 10, "%d", ctx->pid);

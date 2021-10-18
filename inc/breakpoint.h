@@ -12,6 +12,8 @@
 #include <elf.h>
 #include <errno.h>
 
+#include "util.h"
+
 #define BREAKPOINTS_COUNT 16
 #include "context.h"
 

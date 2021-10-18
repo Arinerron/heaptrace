@@ -1,6 +1,7 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
+#include "util.h"
 #include "logging.h"
 
 typedef struct HeaptraceContext HeaptraceContext;

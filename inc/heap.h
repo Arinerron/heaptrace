@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "util.h"
 #include "chunk.h"
 #include "context.h"
 

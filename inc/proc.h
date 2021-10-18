@@ -1,6 +1,8 @@
 #ifndef PME_H
 #define PME_H
 
+#include "util.h"
+
 typedef enum ProcELFType {
     PROCELF_TYPE_BINARY,
     PROCELF_TYPE_LIBC,

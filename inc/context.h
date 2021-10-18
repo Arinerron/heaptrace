@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "util.h"
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
