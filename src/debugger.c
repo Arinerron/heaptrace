@@ -429,7 +429,6 @@ uint map_syms(HeaptraceContext *ctx) {
 
     // final attempts to get symbol information (funcid + parse --symbol)
     evaluate_symbol_defs(ctx, ctx->pre_analysis_bps);
-    verbose("\n");
 
     // install breakpoints
     int k = 0;

@@ -15,6 +15,6 @@
         ABORT();  \
     }
 
-#define PTRACE(...) { if (ptrace(__VA_ARGS__) == -1) { warn("ptrace call in %s:%d returned -1: %s (%d): ptrace(%s)\n", __FILE__, __LINE__, strerror(errno), errno, (#__VA_ARGS__)); } }
+#define PTRACE(...) { if (ptrace(__VA_ARGS__) == -1) { warn("ptrace call in %s:%d returned -1: %s (%d):\n\tptrace(%s)\n", __FILE__, __LINE__, strerror(errno), errno, (#__VA_ARGS__)); } }
 
 #endif
