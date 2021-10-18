@@ -39,9 +39,8 @@ You can specify arguments to heaptrace before specifying the binary name:
 
 ```
 Usage:
-  ./heaptrace [options...] <target>
-  ./heaptrace [options...] -- <target> [args...]
-  ./heaptrace [options...] -p/--attach <pid>
+  ./heaptrace [options...] <target> [args...]
+  ./heaptrace [options...] --attach <pid>
 
 Options:
   -e <name=value>, --environ=<name=value>, --environment=<name=value>
@@ -112,6 +111,7 @@ Options:
 
   -h, --help
 	 Shows this help menu.
+
 ```
 
 For example, if you wanted to automatically attach gdb at operation #3, you would execute:
