@@ -43,7 +43,7 @@ Usage:
   ./heaptrace [options...] -- <target> [args...]
   ./heaptrace [options...] -p/--attach <pid>
 
-
+Options:
   -e <name=value>, --environ=<name=value>, --environment=<name=value>
 	 Sets a single environmental variable. Useful for 
 	 setting runtime settings for the target such as 
@@ -87,9 +87,16 @@ Usage:
 	 only trace the parent.
 
 
-  -G, --gdb-path <path>
+  -G <path>, --gdb-path <path>
 	 Tells heaptrace to use the path to gdb specified 
-	 in `path` instead of /usr/bin/gdb (default)
+	 in `path` instead of /usr/bin/gdb (default).
+
+
+  -p <pid>, --attach <pid>, --pid <pid>
+	 Tells heaptrace to attach to the specified pid 
+	 instead of running the binary from the `target` 
+	 argument. Note that if you specify this argument 
+	 you do not have to specify `target`.
 
 
   -o <file>, --output=<file>
@@ -98,9 +105,13 @@ Usage:
 
 
   -v, --verbose
-	 Print verbose information such as line numbers in
+	 Prints verbose information such as line numbers in
 	 source code given the required debugging info is
 	 stored in the ELF.
+
+
+  -h, --help
+	 Shows this help menu.
 ```
 
 For example, if you wanted to automatically attach gdb at operation #3, you would execute:

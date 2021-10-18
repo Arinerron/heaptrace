@@ -111,13 +111,13 @@ static void show_help(char *argv[]) {
         "\n"
         "\n"
 
-        PND "-G, --gdb-path <path>\n"
+        PND "-G <path>, --gdb-path <path>\n"
         IND "Tells heaptrace to use the path to gdb specified \n"
         IND "in `path` instead of /usr/bin/gdb (default).\n"
         "\n"
         "\n"
 
-        PND "-p, --attach, --pid <pid>\n"
+        PND "-p <pid>, --attach <pid>, --pid <pid>\n"
         IND "Tells heaptrace to attach to the specified pid \n"
         IND "instead of running the binary from the `target` \n"
         IND "argument. Note that if you specify this argument \n"
