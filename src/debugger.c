@@ -487,7 +487,9 @@ void start_debugger(HeaptraceContext *ctx) {
     }
 
     int look_for_brk = ctx->target_is_dynamic;
-    assert(!ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name));
+    if (!(!ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name))) {
+        debug("debug warning: assertion failed: !ctx->target_is_dynamic || (ctx->target_is_dynamic && ctx->target_interp_name))\n");
+    }
 
     if (show_banner) {
         log(COLOR_LOG "================================================================================\n" COLOR_RESET);
