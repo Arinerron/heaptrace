@@ -82,9 +82,9 @@ int main(int argc, char *argv[]) {
         // TODO: refactor this into a check_target_access(ctx) function
         struct stat path_stat;
         if (access(ctx->target->path, F_OK) != 0) {
-            fatal("unable to execute \"%s\": file does not exist.\n", ctx->target->path);
-            log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
-            exit(1);
+            //fatal("unable to execute \"%s\": file does not exist.\n", ctx->target->path);
+            //log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
+            //exit(1);
         } else if (access(ctx->target->path, R_OK) != 0) {
             fatal("permission to read target \"%s\" denied.\n", ctx->target->path);
             log(COLOR_WARN "hint: chmod +r %s\n" COLOR_RESET, ctx->target->path);

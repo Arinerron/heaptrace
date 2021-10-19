@@ -490,13 +490,8 @@ void start_debugger(HeaptraceContext *ctx) {
         debug("Found pid %d's ctx->target->path: %s\n", ctx->pid, ctx->target->path);
     }
     
-    pre_analysis(ctx);
-    
+
     int show_banner = 0;
-    //ctx->target->is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
-
-    int look_for_brk = ctx->target->is_dynamic;
-
     if (!OPT_ATTACH_PID) {
         ctx->pid = start_process(ctx);
         debug("Started target process in PID %d\n", ctx->pid);
@@ -510,11 +505,28 @@ void start_debugger(HeaptraceContext *ctx) {
         show_banner = 1;
     }
 
+
+    //ctx->target->is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
+    int look_for_brk;// = ctx->target->is_dynamic;
+
     //ctx->should_map_syms = !ctx->target->is_dynamic;
     int set_auxv_bp = !OPT_ATTACH_PID; // XXX: this is confusing. refactor later.
     ctx->should_map_syms = !set_auxv_bp;
 
+    int first_run = 1;
     while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0) != -1) {
+        // we have to do a waitpid(), otherwise the process name is still 
+        // /path/to/heaptrace. We need the correct path for pre_analysis. But 
+        // we need the pre_analysis for look_for_brk too.
+        if (first_run) {
+            first_run = 0;
+
+            ctx->target->path = get_path_by_pid(ctx->pid);
+            pre_analysis(ctx);
+
+            look_for_brk = ctx->target->is_dynamic;
+        }
+
         if (!KEEP_RUNNING) break; // in case it updates during waitpid
         // update ctx
         ctx->status16 = ctx->status >> 16;
@@ -527,7 +539,9 @@ void start_debugger(HeaptraceContext *ctx) {
             // XXX: a bit of a hack. TODO find a better way to do this.
             char *fname = get_path_by_pid(ctx->pid);
             if (!fname) {
-                fatal("tracee process (pid=%d) seems to have died before we got a chance to analyze it.\n", ctx->pid);
+                debug("tracee process (pid=%d) seems to have died before we got a chance to analyze it.\n", ctx->pid);
+                warn("unable to trace process; it seems to have died.\n");
+                log(COLOR_WARN "hint: are you sure you gave heaptrace the correct path to the binary file?\n" COLOR_RESET);
                 end_debugger(ctx, 0);
             } else {
                 free(fname);
