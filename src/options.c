@@ -9,6 +9,7 @@
 #include "options.h"
 #include "heap.h"
 #include "debugger.h"
+#include "user-breakpoint.h"
 
 char *symbol_defs_str = "";
 
@@ -204,7 +205,8 @@ int parse_args(int argc, char *argv[]) {
             }
 
             case 'b': {
-                BREAK_AT = parse_bp(optarg);
+                //BREAK_AT = parse_bp(optarg);
+                create_user_breakpoint(optarg);
                 break;
             }
 
