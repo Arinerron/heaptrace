@@ -64,7 +64,8 @@ static void show_help(char *argv[]) {
         IND "Sets a single environmental variable. Useful for \n"
         IND "setting runtime settings for the target such as \n"
         IND "LD_PRELOAD=./libc.so.6 without having them affect \n"
-        IND "heaptrace's runtime configuration.\n"
+        IND "heaptrace's runtime configuration. This option can \n"
+        IND "be used multiple times."
         "\n"
         "\n"
 

@@ -452,12 +452,24 @@ int start_process(HeaptraceContext *ctx) {
             warn("failed to disable aslr for child\n");
         }
 
-        PTRACE(PTRACE_TRACEME, 0, NULL, NULL);
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1) {
+            // ^ if this fails, process is likely being traced already. We aren't 
+            // going to have permission to trace it. because of that. So it's 
+            // going to run without our control and will likely 
+            fatal("failed to enable PTRACE_TRACEME on child process (pid=%d)\n", getpid());
+            log(COLOR_WARN "hint: is another process tracing heaptrace with follow fork mode enabled? That process likely detected our exec() call to start the target process and took control.\n" COLOR_RESET);
+            KEEP_RUNNING = 0;
+            abort();
+        }
+
         extern char **environ;
+        debug("child process (pid=%d) about to execvpe...\n", getpid());
         if (execvpe(ctx->target->path, ctx->target_argv, environ) == -1) {
             fatal("failed to start target via execvp(\"%s\", ...): (%d) %s\n", ctx->target->path, errno, strerror(errno)); // XXX: not thread safe
             exit(1);
         }
+    } else {
+        debug("parent process (pid=%d) returning...\n", getpid());
     }
     return child;
 }
@@ -502,13 +514,24 @@ void start_debugger(HeaptraceContext *ctx) {
     int set_auxv_bp = !OPT_ATTACH_PID; // XXX: this is confusing. refactor later.
     ctx->should_map_syms = !set_auxv_bp;
 
-    while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0)) {
+    while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0) != -1) {
+        if (!KEEP_RUNNING) break; // in case it updates during waitpid
         // update ctx
         ctx->status16 = ctx->status >> 16;
         ctx->code = (ctx->status >> 8) & 0xffff;
 
         if (set_auxv_bp) {
             set_auxv_bp = 0;
+
+            // make sure the process is still alive.
+            // XXX: a bit of a hack. TODO find a better way to do this.
+            char *fname = get_path_by_pid(ctx->pid);
+            if (!fname) {
+                fatal("tracee process (pid=%d) seems to have died before we got a chance to analyze it.\n", ctx->pid);
+                end_debugger(ctx, 0);
+            } else {
+                free(fname);
+            }
 
             debug("resolving auxiliary vector AT_ENTRY...\n");
             ctx->target_at_entry = get_auxv_entry(ctx->pid);
@@ -540,8 +563,9 @@ void start_debugger(HeaptraceContext *ctx) {
             PTRACE(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
 
             if (OPT_FOLLOW_FORK) {
-                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%ld). Following fork...\n\n", ctx->pid, newpid);
+                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%ld). Following fork...\n", ctx->pid, newpid);
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
+                wait(NULL);
                 PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
 
                 ctx->pid = newpid;
@@ -553,6 +577,8 @@ void start_debugger(HeaptraceContext *ctx) {
                 uint oldpid = ctx->pid;
                 ctx->pid = newpid;
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
+                int status;
+                wait(NULL);
                 PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
                 kill(ctx->pid, SIGCONT);
                 ctx->pid = oldpid;

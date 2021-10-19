@@ -1,6 +1,6 @@
 # About
 
-heaptrace is a `ptrace`-based debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. Its purpose is to help visualize heap operations when debugging binaries or doing heap pwn.
+heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. Its purpose is to help visualize heap operations when debugging binaries or doing heap pwn.
 
 ![screenshot.png](screenshot.png)
 
@@ -30,7 +30,6 @@ $ make
 $ sudo make install
 ...
 $ heaptrace ./target
-$ heaptrace -- ./target -a -f3 # if you have arguments
 ```
 
 # Usage
@@ -39,8 +38,8 @@ You can specify arguments to heaptrace before specifying the binary name:
 
 ```
 Usage:
-  ./heaptrace [options...] <target> [args...]
-  ./heaptrace [options...] --attach <pid>
+  heaptrace [options...] <target> [args...]
+  heaptrace [options...] --attach <pid>
 
 Options:
   -e <name=value>, --environ=<name=value>, --environment=<name=value>
@@ -67,8 +66,8 @@ Options:
 	 Also supports "segfault" in the `number` arg to 
 	 launch gdb if the process exits abnormally 
 	 (SIGSEGV, abort(), etc). And, "main" will break at 
-	 the entry point to the binary (the binary's 
-	 auxiliary vector).
+	 the entry point to the binary (the process' 
+	 AT_ENTRY auxiliary vector value).
 
 
   -B <number>, --break-after=<number>
@@ -117,7 +116,7 @@ Options:
 For example, if you wanted to automatically attach gdb at operation #3, you would execute:
 
 ```
-heaptrace --break=3 ./my-binary
+$ heaptrace --break=3 ./my-binary
 ```
 
 See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries that heaptrace failed to automatically identify functions in.

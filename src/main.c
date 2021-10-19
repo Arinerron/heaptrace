@@ -27,7 +27,7 @@ HeaptraceContext *FIRST_CTX = 0;
 // https://stackoverflow.com/a/2436368
 void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
     log("\n");
-    fatal("heaptrace segfaulted. Please re-run with --debug and report this.\n");
+    fatal("heaptrace segfaulted (pid=%d). Please re-run with --debug and report this.\n", getpid());
     exit(1);
 }
 

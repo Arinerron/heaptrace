@@ -54,36 +54,18 @@ uint64_t get_oid(HeaptraceContext *ctx) {
 
 
 void show_stats(HeaptraceContext *ctx) {
-    uint64_t unfreed_sum = 0;
-
-    /* // TODO: convert to BST code
-    Chunk cur_chunk;
-    int _prefix = 0; // hack for getting newlines right
-    for (int i = 0; i < MAX_CHUNKS; i++) {
-        cur_chunk = chunk_meta[i];
-        if (cur_chunk.state == STATE_MALLOC) {
-            if (OPT_VERBOSE) {
-                if (!_prefix) {
-                    _prefix = 1;
-                    log("\n");
-                }
-                log(COLOR_ERROR "* chunk malloc'd in operation " SYM COLOR_ERROR " was never freed\n", cur_chunk.ops[STATE_MALLOC]);
-            }
-            unfreed_sum += CHUNK_SIZE(cur_chunk.size);
-        }
-    }
-    */
+    uint64_t unfreed_sum = count_unfreed_bytes(ctx->chunk_root);
 
     if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
     log(COLOR_LOG "Statistics:\n");
-    log("... total mallocs: " CNT "\n", ctx->malloc_count);
-    log("... total callocs: " CNT "\n", ctx->calloc_count);
-    log("... total frees: " CNT "\n", ctx->free_count);
-    log("... total reallocs: " CNT "\n", ctx->realloc_count);
-    log("... total reallocarrays: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
+    log("... mallocs count: " CNT "\n", ctx->malloc_count);
+    log("... callocs count: " CNT "\n", ctx->calloc_count);
+    log("... frees count: " CNT "\n", ctx->free_count);
+    log("... reallocs count: " CNT "\n", ctx->realloc_count);
+    log("... reallocarrays count: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
 
     if (unfreed_sum) {
-        log(COLOR_ERROR "... total bytes lost: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
+        log(COLOR_ERROR "... unfreed bytes: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
     }
 
     log("%s", COLOR_RESET);

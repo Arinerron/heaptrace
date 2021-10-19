@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <sys/personality.h>
 #include <linux/auxvec.h>
+#include <errno.h>
 
 #include "proc.h"
 #include "logging.h"
@@ -25,7 +26,15 @@ char *get_path_by_pid(int pid) {
     char *exepath = malloc(MAX_PATH_SIZE + 1);
     char *fname = malloc(MAX_PATH_SIZE + 1);
     snprintf(exepath, MAX_PATH_SIZE, "/proc/%d/exe", pid);
-    int nbytes = readlink(exepath, fname, MAX_PATH_SIZE);
+    
+    ssize_t nbytes = readlink(exepath, fname, MAX_PATH_SIZE);
+    if (nbytes == -1) {
+        debug("debug warning: failed to readlink %s. Is the process dead?\n", exepath);
+        free(exepath);
+        free(fname);
+        return 0;
+    }
+
     fname[nbytes] = '\x00';
     free(exepath);
     return fname;
@@ -129,6 +138,7 @@ uint64_t get_auxv_entry(int pid) {
     char *auxvpath = malloc(MAX_PATH_SIZE + 1);
     snprintf(auxvpath, MAX_PATH_SIZE, "/proc/%d/auxv", pid);
     FILE *f = fopen(auxvpath, "r");
+    ASSERT(f, "failed to open auxiliary vector file %s: %s (%d)\n", auxvpath, strerror(errno), errno);
 
     unsigned long at_type;
     unsigned long at_value;

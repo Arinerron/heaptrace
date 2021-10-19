@@ -2,6 +2,7 @@
 #define CHUNK_C
 
 #include "chunk.h"
+#include "heap.h"
 #include "context.h"
 
 static const size_t CHUNK_ARR_SZ = 1000;
@@ -78,6 +79,19 @@ Chunk *alloc_chunk(HeaptraceContext *ctx, uint64_t ptr) {
 Chunk *find_chunk(HeaptraceContext *ctx, uint64_t ptr) {
     if (!ptr) return 0;
     return _find_chunk(ctx->chunk_root, ptr, 0);
+}
+
+
+uint64_t count_unfreed_bytes(Chunk *chunk) {
+    uint64_t nbytes = 0;
+    if (chunk) {
+        if (chunk->state == STATE_MALLOC) {
+            nbytes += CHUNK_SIZE(chunk->size);
+        }
+        nbytes += count_unfreed_bytes(chunk->left);
+        nbytes += count_unfreed_bytes(chunk->right);
+    }
+    return nbytes;
 }
 
 #endif
