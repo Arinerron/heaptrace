@@ -38,15 +38,23 @@ typedef struct UserBreakpoint {
     UserBreakpointAddress *address;
 
     // next &&/AND instruction
-    struct UserBreakpoint *next_requirement;
+    // struct UserBreakpoint *next_requirement;
+    // XXX: AND not supported yet
 
     // next ||/OR instruction
     struct UserBreakpoint *next;
+
+    // runtime things...
+    size_t h_i;
 } UserBreakpoint;
 
 
+extern UserBreakpoint *USER_BREAKPOINT_HEAD;
+
 UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint);
 UserBreakpoint *create_user_breakpoint(char *name);
+void free_user_breakpoints();
+void check_should_break(HeaptraceContext *ctx);
 
 
 /*

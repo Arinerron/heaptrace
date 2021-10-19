@@ -16,6 +16,7 @@
 #include "funcid.h"
 #include "proc.h"
 #include "main.h"
+#include "user-breakpoint.h"
 
 static int in_breakpoint = 0;
 
@@ -266,6 +267,7 @@ uint evaluate_funcid(HeaptraceFile *hf) {
 
 void end_debugger(HeaptraceContext *ctx, int should_detach) {
     if (ctx == FIRST_CTX) FIRST_CTX = 0; // prevent race condition on free()
+    ctx->h_state = PROCESS_STATE_STOPPED;
 
     uint _was_sigsegv = 0;
     uint _show_newline = 0;
@@ -296,7 +298,11 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
 
     show_stats(ctx);
 
-    if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
+    if (_was_sigsegv) {
+        ctx->h_state = PROCESS_STATE_SEGFAULT;
+        check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
+    }
+
     if (should_detach) {
         _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL);
         PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
@@ -304,6 +310,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         kill(ctx->pid, SIGINT);
     }
     free_ctx(ctx);
+    free_user_breakpoints();
     exit(0);
 }
 
@@ -336,9 +343,11 @@ char *get_libc_version(char *libc_path) {
 // this is triggered by a breakpoint. The address to _start (entry) is stored 
 // in auxv and fetched on the first run.
 void _pre_entry(HeaptraceContext *ctx) {
+    ctx->h_state = PROCESS_STATE_ENTRY;
     ctx->should_map_syms = 1;
     _remove_breakpoint(ctx, ctx->bp_entry, BREAKPOINT_OPTS_ALL);
     check_should_break(ctx, 1, BREAK_MAIN, 0);
+    ctx->h_state = PROCESS_STATE_RUNNING;
 }
 
 
@@ -525,6 +534,7 @@ void start_debugger(HeaptraceContext *ctx) {
             pre_analysis(ctx);
 
             look_for_brk = ctx->target->is_dynamic;
+            ctx->h_state = PROCESS_STATE_RUNNING;
         }
 
         if (!KEEP_RUNNING) break; // in case it updates during waitpid
@@ -567,6 +577,7 @@ void start_debugger(HeaptraceContext *ctx) {
             debug("received an exit status, goodbye!\n");
             end_debugger(ctx, 0);
         } else if (ctx->status == 0x57f) { /* status SIGTRAP */ 
+            ctx->h_state = PROCESS_STATE_RUNNING;
             _check_breakpoints(ctx);
             if (!KEEP_RUNNING) {
                 debug("received a SIGTRAP and !KEEP_RUNNING\n");

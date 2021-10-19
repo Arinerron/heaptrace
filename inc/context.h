@@ -16,6 +16,13 @@ typedef struct HeaptraceFile HeaptraceFile;
 typedef struct Chunk Chunk;
 typedef struct SymbolEntry SymbolEntry;
 
+typedef enum ProcessState {
+    PROCESS_STATE_RUNNING,
+    PROCESS_STATE_ENTRY,
+    PROCESS_STATE_SEGFAULT,
+    PROCESS_STATE_STOPPED
+} ProcessState;
+
 typedef struct HeaptraceContext {
     // init settings
     char **target_argv;
@@ -41,6 +48,7 @@ typedef struct HeaptraceContext {
     char *between_pre_and_post;
     ProcELFType ret_ptr_section_type;
 
+    ProcessState h_state;
     size_t h_size;
     uint64_t h_ptr;
     uint64_t h_oid;
