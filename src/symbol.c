@@ -260,6 +260,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
     }
 
     // resolve static symbols
+    SymbolEntry *all_static_se_head = 0;
     if (strtab_off && symtab_off) {
         for (size_t j = 0; j * sizeof(Elf64_Sym) < symtab_sz; j++) {
             Elf64_Sym sym;
@@ -271,28 +272,85 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
                 _CHECK_BOUNDS(name, "static: name");
                 size_t n = strlen(name);
 
+                uint64_t offset = (uint64_t)(sym.st_value);
+                // XXX: for some reason libc has a load addr of 0x40 that's throwing stuff off. This is a stopgap solution for that.
+                if (!is_dynamic) offset -= load_addr;
+
                 SymbolEntry *cse = se_head;
                 while (1) {
                     if (!cse) break;
                     if (((!cse->offset && sym.st_value) || cse->type == SE_TYPE_UNRESOLVED) && strcmp(cse->name, name) == 0) {
                         debug("tab: st_name: %s @ " U64T "\n", name, (uint64_t)sym.st_value);
                         cse->type = SE_TYPE_STATIC;
-                        //cse->offset = (uint64_t)(sym.st_value);
-                        cse->offset = (uint64_t)(sym.st_value) - load_addr;
-                        cse->_sub_offset = load_addr; // XXX: for some reason libc has a load addr of 0x40 that's throwing stuff off. This is a stopgap solution for that.
+                        cse->offset = offset;
+                        cse->_sub_offset = 0;
+                        cse->size = sym.st_size;
                         cse->section = sym.st_shndx;
                         if (sym.st_value) is_stripped = 0;
                     }
                     cse = cse->_next;
                 }
+
+                // now add to all_static_se_head
+                SymbolEntry *_cur_static_se = (SymbolEntry *)calloc(1, sizeof(SymbolEntry));
+                _cur_static_se->_next = all_static_se_head;
+                all_static_se_head = _cur_static_se;
+
+                _cur_static_se->name = strdup(name);
+                _cur_static_se->offset = offset;
+                _cur_static_se->size = sym.st_size;
+                _cur_static_se->_sub_offset = 0;
+                _cur_static_se->type = SE_TYPE_STATIC;
+                _cur_static_se->section = sym.st_shndx;
+
+                //printf("%s\toffset=%p, size=%p\n", _cur_static_se->name, _cur_static_se->offset, _cur_static_se->size);
             }
         }
     }
 
+    hf->all_static_se_head = all_static_se_head;
     hf->se_head = se_head;
     hf->is_stripped = is_stripped;
     hf->is_dynamic = is_dynamic;
 }
+
+
+SymbolEntry *find_symbol_by_address(HeaptraceFile *hf, uint64_t addr) {
+    if (!(hf->pme) || addr < hf->pme->base || addr >= hf->pme->end) return 0; // not in bounds
+    addr -= hf->pme->base;
+    
+    SymbolEntry *cur_se = hf->all_static_se_head;
+    while(cur_se) {
+        //printf("... %s\taddr=%p, offset=%p, offset+size=%p\n", cur_se->name, addr, cur_se->offset, cur_se->offset + cur_se->size);
+        if (addr >= cur_se->offset && addr < cur_se->offset + cur_se->size) return cur_se;
+        cur_se = cur_se->_next;
+    }
+
+    return 0;
+}
+
+
+HeaptraceFile *find_heaptrace_file_by_address(HeaptraceContext *ctx, uint64_t addr) {
+    HeaptraceFile *hfs[] = {ctx->target, ctx->libc};
+    HeaptraceFile *cur_hf;
+    for (int i = 0; i < sizeof(hfs) / sizeof(hfs[0]); i++) {
+        cur_hf = hfs[i];
+        if (cur_hf->pme && addr >= cur_hf->pme->base && addr < cur_hf->pme->end) {
+            return cur_hf;
+        }
+    }
+    return 0;
+}
+
+
+char *find_symbol_name_by_address(HeaptraceContext *ctx, uint64_t addr) {
+    HeaptraceFile *hf = find_heaptrace_file_by_address(ctx, addr);
+    if (!hf) return 0;
+    SymbolEntry *se = find_symbol_by_address(hf, addr);
+    if (!se) return 0;
+    return se->name;
+}
+
 
 
 SymbolEntry *any_se_type(SymbolEntry *se_head, int type) {
@@ -340,4 +398,39 @@ void free_se_list(SymbolEntry *se_head) {
         free(cse);
         cse = next_cse;
     }
+}
+
+
+char *get_source_function(HeaptraceContext *ctx) {
+    char *section = "<unknown>";
+    if (OPT_VERBOSE) {
+        switch (ctx->h_ret_ptr_section_type) {
+            case PROCELF_TYPE_LIBC:
+                section = "libc";
+                break;
+            case PROCELF_TYPE_UNKNOWN:
+                section = "<library>";
+                break;
+            case PROCELF_TYPE_BINARY:
+                section = 0;
+                break;
+        }
+    }
+
+    char *symbol_name = find_symbol_name_by_address(ctx, ctx->h_ret_ptr);
+    size_t buf_size = 2;
+    if (symbol_name) buf_size += strlen(symbol_name);
+    if (section) buf_size += 1 + strlen(section);
+
+    char *buf = calloc(1, buf_size);
+    if (symbol_name) strcat(buf, symbol_name);
+    if (symbol_name && section) strcat(buf, "@");
+    if (section) strcat(buf, section);
+
+    if (!strlen(buf)) {
+        free(buf);
+        buf = strdup("binary"); // this is the only way `section` can be NULL
+    }
+
+    return buf;
 }

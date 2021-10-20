@@ -73,7 +73,8 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                                 if (OPT_VERBOSE) {
                                     ProcMapsEntry *pme = pme_find_addr(ctx->pme_head, val_at_reg_rsp);
                                     if (pme) {
-                                        ctx->ret_ptr_section_type = pme->pet;
+                                        ctx->h_ret_ptr_section_type = pme->pet;
+                                        ctx->h_ret_ptr = val_at_reg_rsp;
                                     }
                                 }
 
@@ -410,6 +411,8 @@ uint map_syms(HeaptraceContext *ctx) {
     if (!ctx->pme_head) ctx->pme_head = build_pme_list(ctx->pid); // already built if attaching
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
     ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
+    ctx->target->pme = bin_pme;
+    ctx->libc->pme = libc_pme;
     
     // quick debug info about addresses/paths we found
     ASSERT(bin_pme, "failed to find target binary in process mapping (!bin_pme). Please report this!");

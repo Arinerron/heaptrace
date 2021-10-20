@@ -42,16 +42,18 @@ extern FILE *output_fd;
 #define fatal(fmt, ...) { fprintf(output_fd, (COLOR_ERROR_BOLD "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
 #define fatal2(f_, fmt, ...) { fprintf((f_), (COLOR_ERROR_BOLD "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
 
+#define U64T "0x%" PRIx64
+
 #define SYM COLOR_SYMBOL_BOLD "#" COLOR_SYMBOL "%lu" COLOR_LOG
 #define SYM_IT COLOR_SYMBOL_ITALIC "#%lu" COLOR_LOG
 #define SZ COLOR_LOG_BOLD "0x%02lx" COLOR_LOG
 #define SZ_ERR COLOR_ERROR_BOLD "0x%02lx" COLOR_ERROR
 #define SZ_ARG(sz) ((long unsigned int)(sz))
 #define CNT COLOR_LOG_BOLD "%lu" COLOR_LOG
-#define PTR COLOR_LOG_BOLD "0x%llx" COLOR_LOG
-#define PTR_ERR COLOR_ERROR_BOLD "0x%llx" COLOR_ERROR
-#define PTR_IT COLOR_LOG_ITALIC "0x%llx" COLOR_LOG
-#define PTR_ARG(ptr) ((long long unsigned int)(ptr))
+#define PTR COLOR_LOG_BOLD U64T COLOR_LOG
+#define PTR_ERR COLOR_ERROR_BOLD U64T COLOR_ERROR
+#define PTR_IT COLOR_LOG_ITALIC U64T COLOR_LOG
+#define PTR_ARG(ptr) ((long unsigned int)(ptr))
 
 #define log_heap(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); }
 #define verbose_heap(fmt, ...) { if (OPT_VERBOSE) { fprintf(output_fd, (COLOR_LOG "\t^-- " COLOR_LOG_ITALIC fmt COLOR_RESET "\n"), ##__VA_ARGS__); } }
@@ -62,4 +64,3 @@ extern FILE *output_fd;
 
 void describe_symbol(void *ptr);
 
-#define U64T "0x%" PRIx64

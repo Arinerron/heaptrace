@@ -13,7 +13,7 @@ HeaptraceFile *alloc_file(HeaptraceContext *ctx) {
 
 HeaptraceContext *alloc_ctx() {
     HeaptraceContext *ctx = (HeaptraceContext *)calloc(1, sizeof(HeaptraceContext));
-    ctx->ret_ptr_section_type = PROCELF_TYPE_UNKNOWN;
+    ctx->h_ret_ptr_section_type = PROCELF_TYPE_UNKNOWN;
     ctx->target = alloc_file(ctx);
     ctx->libc = alloc_file(ctx);
     return ctx;
@@ -28,7 +28,9 @@ void *free_ctx(HeaptraceContext *ctx) {
     free(ctx->se_names);
 
     free_se_list(ctx->target->se_head);
+    free_se_list(ctx->target->all_static_se_head);
     free_se_list(ctx->libc->se_head);
+    free_se_list(ctx->libc->all_static_se_head);
     free(ctx->target);
     free(ctx->libc);
 

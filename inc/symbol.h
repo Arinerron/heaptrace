@@ -26,6 +26,7 @@
 typedef struct SymbolEntry {
     char *name;
     uint64_t offset;
+    uint64_t size;
     int section;
     int type; // SE_TYPE_STATIC, SE_TYPE_DYNAMIC, SE_TYPE_DYNAMIC_PLT
 
@@ -38,5 +39,11 @@ SymbolEntry *any_se_type(SymbolEntry *se_head, int type);
 int all_se_type(SymbolEntry *se_head, int type);
 SymbolEntry *find_se_name(SymbolEntry *se_head, char *name);
 void free_se_list(SymbolEntry *se_head);
+
+SymbolEntry *find_symbol_by_address(HeaptraceFile *hf, uint64_t addr);
+HeaptraceFile *find_heaptrace_file_by_address(HeaptraceContext *ctx, uint64_t addr);
+char *find_symbol_name_by_address(HeaptraceContext *ctx, uint64_t addr);
+
+char *get_source_function(HeaptraceContext *ctx);
 
 #endif

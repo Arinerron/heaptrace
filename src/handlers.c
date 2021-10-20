@@ -4,23 +4,8 @@
 #include "options.h"
 #include "user-breakpoint.h"
 
-static inline char *_get_source_section(HeaptraceContext *ctx) {
-    if (OPT_VERBOSE) {
-        switch (ctx->ret_ptr_section_type) {
-            case PROCELF_TYPE_LIBC:
-                return "caller: libc";
-                break;
-            case PROCELF_TYPE_UNKNOWN:
-                return "caller: a library";
-                break;
-            case PROCELF_TYPE_BINARY:
-                return "caller: binary";
-                break;
-        }
-    }
 
-    return "caller: (unknown)";
-}
+#define PRINT_SOURCE() { if (OPT_VERBOSE) { char *SRC_FUNC = get_source_function(ctx); verbose_heap("called by: " COLOR_LOG_BOLD "%s" COLOR_LOG "; returns to " PTR, SRC_FUNC, ctx->h_ret_ptr); free(SRC_FUNC); } }
 
 
 // check if pointer is in stack, libc, or binary, and error if so
@@ -54,7 +39,7 @@ void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
 
 void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
-    verbose_heap("%s", _get_source_section(ctx));
+    PRINT_SOURCE()
 
     // store meta info
     Chunk *chunk = alloc_chunk(ctx, ptr);
@@ -101,7 +86,7 @@ void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
 
 void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
     log_heap("=  " PTR "\n", PTR_ARG(ptr));
-    verbose_heap("%s", _get_source_section(ctx));
+    PRINT_SOURCE()
 
     // store meta info
     Chunk *chunk = alloc_chunk(ctx, ptr);
@@ -179,7 +164,7 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
 void post_free(HeaptraceContext *ctx, uint64_t retval) {
     ctx->between_pre_and_post = 0;
     log(COLOR_RESET);
-    verbose_heap("%s", _get_source_section(ctx));
+    PRINT_SOURCE()
 }
 
 
@@ -246,7 +231,7 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
         log("\t%s(" SYM_IT "=" PTR_IT ")", COLOR_LOG_ITALIC, ctx->h_orig_chunk->ops[STATE_MALLOC], PTR_ARG(ctx->h_ptr));
     }
     log_heap("\n");
-    verbose_heap("%s", _get_source_section(ctx));
+    PRINT_SOURCE()
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
     Chunk *new_chunk = alloc_chunk(ctx, new_ptr);

@@ -44,11 +44,12 @@ typedef struct HeaptraceContext {
     uint should_map_syms;
 
     char *between_pre_and_post;
-    ProcELFType ret_ptr_section_type;
 
     UBPWhen h_when;
     ProcessState h_state;
     uint64_t h_rip;
+    uint64_t h_ret_ptr;
+    ProcELFType h_ret_ptr_section_type;
 
     size_t h_size;
     uint64_t h_ptr;
@@ -84,6 +85,8 @@ typedef struct HeaptraceFile {
     uint is_dynamic;
     uint is_stripped;
     SymbolEntry *se_head;
+    SymbolEntry *all_static_se_head; // all static symbols
+    ProcMapsEntry *pme;
 } HeaptraceFile;
 
 void *free_ctx(HeaptraceContext *ctx);
