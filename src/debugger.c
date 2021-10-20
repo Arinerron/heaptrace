@@ -495,7 +495,7 @@ int start_process(HeaptraceContext *ctx) {
 
 
 void start_debugger(HeaptraceContext *ctx) {
-    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n" COLOR_RESET);
+    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n\n" COLOR_RESET);
 
     if (OPT_ATTACH_PID) {
         ctx->pid = OPT_ATTACH_PID;
@@ -639,9 +639,8 @@ void start_debugger(HeaptraceContext *ctx) {
             }
 
             if (show_banner) {
-                log(COLOR_LOG "================================================================================\n" COLOR_RESET);
+                log(COLOR_LOG "\n================================================================================\n" COLOR_RESET);
             }
-            log("\n");
 
         }
 

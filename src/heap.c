@@ -15,17 +15,19 @@ uint64_t get_oid(HeaptraceContext *ctx) {
 void show_stats(HeaptraceContext *ctx) {
     uint64_t unfreed_sum = count_unfreed_bytes(ctx->chunk_root);
 
-    if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
-    log(COLOR_LOG "Statistics:\n");
-    log("... mallocs count: " CNT "\n", ctx->malloc_count);
-    log("... callocs count: " CNT "\n", ctx->calloc_count);
-    log("... frees count: " CNT "\n", ctx->free_count);
-    log("... reallocs count: " CNT "\n", ctx->realloc_count);
-    log("... reallocarrays count: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
+    if (get_oid(ctx) || unfreed_sum) {
+        if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
+        log(COLOR_LOG "Statistics:\n");
+        if (ctx->malloc_count) log("... mallocs count: " CNT "\n", ctx->malloc_count);
+        if (ctx->calloc_count) log("... callocs count: " CNT "\n", ctx->calloc_count);
+        if (ctx->free_count) log("... frees count: " CNT "\n", ctx->free_count);
+        if (ctx->realloc_count) log("... reallocs count: " CNT "\n", ctx->realloc_count);
+        if (ctx->reallocarray_count) log("... reallocarrays count: " CNT "\n" COLOR_RESET, ctx->reallocarray_count);
 
-    if (unfreed_sum) {
-        log(COLOR_ERROR "... unfreed bytes: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
+        if (unfreed_sum) {
+            log(COLOR_ERROR "... unfreed bytes: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
+        }
     }
 
-    log("%s", COLOR_RESET);
+    log(COLOR_RESET);
 }
