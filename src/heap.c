@@ -4,12 +4,6 @@
 #include "debugger.h"
 #include "handlers.h"
 
-uint64_t BREAK_AT = 0;
-uint64_t BREAK_AFTER = 0;
-int BREAK_MAIN = 0;
-int BREAK_SIGSEGV = 0;
-
-
 // returns the current operation ID
 uint64_t get_oid(HeaptraceContext *ctx) {
     uint64_t oid = ctx->malloc_count + ctx->calloc_count + ctx->free_count + ctx->realloc_count + ctx->reallocarray_count;

@@ -144,24 +144,6 @@ static void show_help(char *argv[]) {
 }
 
 
-static uint64_t _parse_oid(char *optarg) {
-    char *endp;
-    while (*optarg == '#' || *optarg == ' ' || *optarg == '\n') optarg++;
-    return strtoul(optarg, &endp, 10);
-}
-
-
-static uint64_t parse_bp(char *optarg) {
-    if (!strcmp(optarg, "main") || !strcmp(optarg, "entry") || !strcmp(optarg, "start") || !strcmp(optarg, "_start")) {
-        BREAK_MAIN = 1;
-    } else if (!strcmp(optarg, "sigsegv") || !strcmp(optarg, "segv") || !strcmp(optarg, "error") || !strcmp(optarg, "abort") || !strcmp(optarg, "segfault")) {
-        BREAK_SIGSEGV = 1;
-    } else {
-        return _parse_oid(optarg);
-    }
-}
-
-
 // returns the index of the first non-argument in argv
 int parse_args(int argc, char *argv[]) {
     bool isCaseInsensitive = false;
