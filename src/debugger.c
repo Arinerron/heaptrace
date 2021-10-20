@@ -366,15 +366,19 @@ void pre_analysis(HeaptraceContext *ctx) {
     };
 
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
-    //Breakpoint *bps[breakpoint_defs_c + 1];
+    size_t ubp_sym_refs_c = count_symbol_references((char **)0);
+
     Breakpoint **bps = (Breakpoint **)malloc(sizeof(Breakpoint *) * (breakpoint_defs_c + 1));
     ctx->pre_analysis_bps = bps;
-    //char *se_names[breakpoint_defs_c + 1];
-    char **se_names = (char **)malloc(sizeof(char *) * (breakpoint_defs_c + 1));
+
+    size_t se_names_sz = sizeof(char *) * (breakpoint_defs_c + ubp_sym_refs_c + 1);
+    char **se_names = (char **)malloc(se_names_sz);
     ctx->se_names = se_names;
 
+
     bps[breakpoint_defs_c] = NULL;
-    ctx->se_names[breakpoint_defs_c] = NULL;
+    count_symbol_references(&(ctx->se_names[breakpoint_defs_c]));
+    ctx->se_names[breakpoint_defs_c + ubp_sym_refs_c] = NULL;
 
     Breakpoint *bp;
     for (int i = 0; i < breakpoint_defs_c; i++) {
@@ -616,6 +620,8 @@ void start_debugger(HeaptraceContext *ctx) {
         }
 
         if (ctx->should_map_syms) {
+            fill_symbol_references(ctx);
+
             show_banner |= map_syms(ctx);
             if (ctx->target->is_stripped && ctx->libc->is_stripped && !strlen(symbol_defs_str)) {
                 warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");

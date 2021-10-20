@@ -234,11 +234,88 @@ void free_user_breakpoints() {
 /* SECTION: CHECKING BREAKPOINTS */
 
 
+static inline uint _is_reference_constant(char *name) {
+    // TODO: check if we need "binary", "target", "glibc", etc
+    if (!strcmp(name, "bin") || !strcmp(name, "libc")) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+size_t count_symbol_references(char **se_names) {
+    size_t count = 0;
+    UserBreakpoint cur_ubp = USER_BREAKPOINT_HEAD;
+    while (cur_ubp) {
+        UserBreakpointAddress cur_ubpa = cur_ubp->address;
+        while (cur_ubpa) {
+            if (cur_ubpa->symbol_name) {
+                if (!_is_reference_constant(cur_ubpa->symbol_name)) {
+                    if (se_names) {
+                        se_names[count] = strdup(cur_ubpa->symbol_name);
+                    }
+                    count++;
+                }
+            }
+            cur_ubpa = cur_ubpa->next_operation;
+        }
+        cur_ubp = cur_ubp->next;
+    }
+    return count;
+}
+
+
+void fill_symbol_references(HeaptraceContext *ctx) {
+    ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+    ASSERT(bin_pme, "cannot find binary base address");
+
+    UserBreakpoint cur_ubp = USER_BREAKPOINT_HEAD;
+    while (cur_ubp) {
+        UserBreakpointAddress cur_ubpa = cur_ubp->address;
+        while (cur_ubpa) {
+            if (cur_ubpa->symbol_name) {
+                if (!_is_reference_constant(cur_ubpa->symbol_name)) {
+                    uint resolved = 0;
+                    SymbolEntry *cur_se = ctx->se_head;
+                    while (cur_se) {
+                        if (!strcmp(cur_ubpa->symbol_name, cur_se->name)) {
+                            // found the symbol!
+                            cur_ubpa->symbol_name = 0;
+                            if (cur_se->type != SE_TYPE_STATIC) {
+                                warn("user breakpoint \"%s\" references symbol %s which is a dynamic symbol. Only static symbols are currently supported.\n", cur_ubp->name, cur_se->name);
+                            } else {
+                                cur_ubpa->address = bin_pme->base + cur_se->offset;
+                            }
+                            resolved = 1;
+                            break;
+                        }
+                        cur_se = cur_se->next;
+                    }
+
+                    if (!resolved) {
+                        warn("user breakpoint \"%s\" references %s but the symbol could not be resolved. Will assume symbol %s=0x0\n", cur_ubp->name, cur_ubpa->symbol_name, cur_ubpa->symbol_name);
+                        cur_ubpa->symbol_name = 0;
+                        cur_ubpa->address;
+                    }
+                } else {
+                    if (!(ctx->is_dynamic) && !strcmp(cur_ubpa->symbol_name, "libc")) {
+                        warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
+                    }
+                }
+            }
+            cur_ubpa = cur_ubpa->next_operation;
+        }
+        cur_ubp = cur_ubp->next;
+    }
+}
+
+
 static inline uint64_t _resolve_symbol(HeaptraceContext *ctx) {
     // TODO: optimize! maybe fill in the "address" and NULL the "symbol_name" 
     // when symbols are resolved at runtime. First make an array of all sym 
-    // names and merge with se_names :)
-    if (!strcmp(ctx->target_at_entry, "entry"))
+    // names and merge with se_names
+    if (!strcmp(ctx->target_at_entry, "entry")) {}
 }
 
 
@@ -253,10 +330,8 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
         UserBreakpointAddress *cur_ubpa = ubp->address;
         while (cur_ubpa) {
             uint64_t cur_ptr = cur_ubpa->address;
-            if (cur_ubpa->symbol_name) {
-                // oh no we have to resolve symbols :(((((((((((((
-                cur_ptr = _resolve_symbol(HeaptraceContext *ctx);
-            }
+            ASSERT(!(cur_ubpa->symbol_name), "unable to check user breakpoint \"%s\"; symbol \"%s\" not resolved");
+            // NOTE: this assertion is gonna fail if we use `entry`!
 
             if (cur_ubpa->operation == UBPA_OPERATION_ADD) {
                 ptr += cur_ptr;
