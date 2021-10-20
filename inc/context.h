@@ -8,6 +8,7 @@
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
+#include "user-breakpoint.h"
 
 typedef struct HeaptraceFile HeaptraceFile;
 
@@ -16,11 +17,17 @@ typedef struct HeaptraceFile HeaptraceFile;
 typedef struct Chunk Chunk;
 typedef struct SymbolEntry SymbolEntry;
 
+typedef enum ProcessState {
+    PROCESS_STATE_RUNNING,
+    PROCESS_STATE_ENTRY,
+    PROCESS_STATE_SEGFAULT,
+    PROCESS_STATE_STOPPED
+} ProcessState;
+
 typedef struct HeaptraceContext {
     // init settings
     char **target_argv;
     char **se_names;
-    SymbolEntry *target_se_head;
 
     // pre-analysis settings
     HeaptraceFile *target;
@@ -29,8 +36,6 @@ typedef struct HeaptraceContext {
     Breakpoint **pre_analysis_bps;
     Breakpoint *bp_entry;
 
-    SymbolEntry *libc_se_head;
-    
     // runtime settings
     uint pid;
     int status; // waitpid
@@ -40,6 +45,10 @@ typedef struct HeaptraceContext {
 
     char *between_pre_and_post;
     ProcELFType ret_ptr_section_type;
+
+    UBPWhen h_when;
+    ProcessState h_state;
+    uint64_t h_rip;
 
     size_t h_size;
     uint64_t h_ptr;

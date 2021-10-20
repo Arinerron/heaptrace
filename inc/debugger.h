@@ -28,7 +28,5 @@ void _check_breakpoints(HeaptraceContext *ctx);
 
 static uint calculate_bp_addrs(HeaptraceContext *ctx, Breakpoint **bps);
 uint evaluate_funcid(HeaptraceFile *hf);
-
-
 void end_debugger(HeaptraceContext *ctx, int should_detach);
 void start_debugger(HeaptraceContext *ctx);

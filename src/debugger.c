@@ -16,6 +16,7 @@
 #include "funcid.h"
 #include "proc.h"
 #include "main.h"
+#include "user-breakpoint.h"
 
 static int in_breakpoint = 0;
 
@@ -33,13 +34,13 @@ void _check_breakpoints(HeaptraceContext *ctx) {
         if (bp) {
             if (bp->addr == reg_rip) { // hit the breakpoint
                 _was_bp = 1;
-                //printf("Hit breakpoint %s (0x%x)\n", bp->name, reg_rip);
                 PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, (uint64_t)bp->orig_data);
 
                 // move rip back by one
                 regs.rip = reg_rip; // NOTE: this is actually $rip-1
                 PTRACE(PTRACE_SETREGS, ctx->pid, NULL, &regs);
                 
+                ctx->h_when = UBP_WHEN_BEFORE;
                 if (!in_breakpoint && !bp->_is_inside && bp->pre_handler) {
                     int nargs = bp->pre_handler_nargs;
                     if (nargs == 0) {
@@ -54,6 +55,8 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                         ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
                     }
                 }
+                ctx->h_when = UBP_WHEN_BEFORE;
+                check_should_break(ctx);
                 
                 // reset breakpoint and continue
                 PTRACE(PTRACE_SINGLESTEP, ctx->pid, NULL, NULL);
@@ -93,9 +96,12 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     } else { // this is a return value catcher breakpoint
                         Breakpoint *orig_bp = bp->_bp;
                         if (orig_bp) {
+                            ctx->h_when = UBP_WHEN_AFTER;
                             if (orig_bp->post_handler) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
+                            ctx->h_when = UBP_WHEN_AFTER;
+                            check_should_break(ctx);
                             _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
                         } else {
@@ -108,9 +114,6 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     // reinstall original breakpoint
                     PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                 }
-
-                //printf("BREAKPOINT peeked 0x%x at breakpoint 0x%x\n", ptrace(PTRACE_PEEKDATA, pid, reg_rip, 0L), reg_rip);
-
             }
         }
     }
@@ -266,6 +269,7 @@ uint evaluate_funcid(HeaptraceFile *hf) {
 
 void end_debugger(HeaptraceContext *ctx, int should_detach) {
     if (ctx == FIRST_CTX) FIRST_CTX = 0; // prevent race condition on free()
+    ctx->h_state = PROCESS_STATE_STOPPED;
 
     uint _was_sigsegv = 0;
     uint _show_newline = 0;
@@ -296,7 +300,13 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
 
     show_stats(ctx);
 
-    if (_was_sigsegv) check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
+    if (_was_sigsegv) {
+        ctx->h_state = PROCESS_STATE_SEGFAULT;
+        ctx->h_when = UBP_WHEN_BEFORE;
+        check_should_break(ctx);
+        ctx->h_when = UBP_WHEN_AFTER;
+    }
+
     if (should_detach) {
         _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL);
         PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
@@ -304,6 +314,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         kill(ctx->pid, SIGINT);
     }
     free_ctx(ctx);
+    free_user_breakpoints();
     exit(0);
 }
 
@@ -336,9 +347,13 @@ char *get_libc_version(char *libc_path) {
 // this is triggered by a breakpoint. The address to _start (entry) is stored 
 // in auxv and fetched on the first run.
 void _pre_entry(HeaptraceContext *ctx) {
+    ctx->h_state = PROCESS_STATE_ENTRY;
     ctx->should_map_syms = 1;
     _remove_breakpoint(ctx, ctx->bp_entry, BREAKPOINT_OPTS_ALL);
-    check_should_break(ctx, 1, BREAK_MAIN, 0);
+    ctx->h_when = UBP_WHEN_BEFORE;
+    check_should_break(ctx);
+    ctx->h_when = UBP_WHEN_AFTER;
+    ctx->h_state = PROCESS_STATE_RUNNING;
 }
 
 
@@ -357,15 +372,19 @@ void pre_analysis(HeaptraceContext *ctx) {
     };
 
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
-    //Breakpoint *bps[breakpoint_defs_c + 1];
+    size_t ubp_sym_refs_c = count_symbol_references((char **)0);
+
     Breakpoint **bps = (Breakpoint **)malloc(sizeof(Breakpoint *) * (breakpoint_defs_c + 1));
     ctx->pre_analysis_bps = bps;
-    //char *se_names[breakpoint_defs_c + 1];
-    char **se_names = (char **)malloc(sizeof(char *) * (breakpoint_defs_c + 1));
+
+    size_t se_names_sz = sizeof(char *) * (breakpoint_defs_c + ubp_sym_refs_c + 1);
+    char **se_names = (char **)malloc(se_names_sz);
     ctx->se_names = se_names;
 
+
     bps[breakpoint_defs_c] = NULL;
-    ctx->se_names[breakpoint_defs_c] = NULL;
+    count_symbol_references(&(ctx->se_names[breakpoint_defs_c]));
+    ctx->se_names[breakpoint_defs_c + ubp_sym_refs_c] = NULL;
 
     Breakpoint *bp;
     for (int i = 0; i < breakpoint_defs_c; i++) {
@@ -393,7 +412,7 @@ uint map_syms(HeaptraceContext *ctx) {
     ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     
     // quick debug info about addresses/paths we found
-    ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
+    ASSERT(bin_pme, "failed to find target binary in process mapping (!bin_pme). Please report this!");
     debug("found memory maps... binary (%s): " U64T "-" U64T, bin_pme->name, bin_pme->base, bin_pme->end);
     if (libc_pme) {
         char *name = libc_pme->name;
@@ -499,7 +518,7 @@ void start_debugger(HeaptraceContext *ctx) {
         ctx->pid = OPT_ATTACH_PID;
         info("Attaching to target process PID %d...\n", ctx->pid);
         if (ptrace(PTRACE_ATTACH, ctx->pid, NULL, NULL) == -1) {
-            fatal("Failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
+            fatal("failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
             exit(1);
         }
         show_banner = 1;
@@ -515,6 +534,11 @@ void start_debugger(HeaptraceContext *ctx) {
 
     int first_run = 1;
     while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0) != -1) {
+        struct user_regs_struct regs;
+        if (ptrace(PTRACE_GETREGS, ctx->pid, NULL, &regs) != -1) {
+            ctx->h_rip = regs.rip;
+        }
+        
         // we have to do a waitpid(), otherwise the process name is still 
         // /path/to/heaptrace. We need the correct path for pre_analysis. But 
         // we need the pre_analysis for look_for_brk too.
@@ -525,6 +549,7 @@ void start_debugger(HeaptraceContext *ctx) {
             pre_analysis(ctx);
 
             look_for_brk = ctx->target->is_dynamic;
+            ctx->h_state = PROCESS_STATE_RUNNING;
         }
 
         if (!KEEP_RUNNING) break; // in case it updates during waitpid
@@ -567,6 +592,7 @@ void start_debugger(HeaptraceContext *ctx) {
             debug("received an exit status, goodbye!\n");
             end_debugger(ctx, 0);
         } else if (ctx->status == 0x57f) { /* status SIGTRAP */ 
+            ctx->h_state = PROCESS_STATE_RUNNING;
             _check_breakpoints(ctx);
             if (!KEEP_RUNNING) {
                 debug("received a SIGTRAP and !KEEP_RUNNING\n");
@@ -606,6 +632,7 @@ void start_debugger(HeaptraceContext *ctx) {
 
         if (ctx->should_map_syms) {
             show_banner |= map_syms(ctx);
+            fill_symbol_references(ctx);
             if (ctx->target->is_stripped && ctx->libc->is_stripped && !strlen(symbol_defs_str)) {
                 warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
                 show_banner = 1;
