@@ -8,6 +8,7 @@
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
+#include "user-breakpoint.h"
 
 typedef struct HeaptraceFile HeaptraceFile;
 
@@ -48,7 +49,9 @@ typedef struct HeaptraceContext {
     char *between_pre_and_post;
     ProcELFType ret_ptr_section_type;
 
+    UBPWhen h_when;
     ProcessState h_state;
+
     size_t h_size;
     uint64_t h_ptr;
     uint64_t h_oid;

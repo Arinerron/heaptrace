@@ -1,3 +1,7 @@
+#ifndef UBP_H
+#define UBP_H
+
+typedef struct HeaptraceContext HeaptraceContext;
 typedef enum UBPTType {UBPT_TYPE_IDENTIFIER, UBPT_TYPE_PUNCTUATOR} UBPTType;
 
 typedef struct UserBreakpointToken {
@@ -50,12 +54,17 @@ typedef struct UserBreakpoint {
 
 
 extern UserBreakpoint *USER_BREAKPOINT_HEAD;
+extern char *OPT_GDB_PATH;
 
 UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint);
 UserBreakpoint *create_user_breakpoint(char *name);
+size_t count_symbol_references(char **se_names);
+void fill_symbol_references(HeaptraceContext *ctx);
 void free_user_breakpoints();
+void insert_user_breakpoint(UserBreakpoint *ubp);
 void check_should_break(HeaptraceContext *ctx);
 
+#include "context.h"
 
 /*
  * --break 'address=bin+0x1234:10'
@@ -105,3 +114,5 @@ void check_should_break(HeaptraceContext *ctx);
  * }
  *
  */
+
+#endif

@@ -4,6 +4,7 @@
 
 
 UserBreakpoint *USER_BREAKPOINT_HEAD = 0;
+char *OPT_GDB_PATH = "/usr/bin/gdb";
 
 /* SECTION: TOKENIZATION */
 
@@ -164,10 +165,20 @@ UserBreakpoint *create_user_breakpoint(char *name) {
             EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "expected an identifier");
             if (!strcmp(cur_token->value, "address") || !strcmp(cur_token->value, "addr")) {
                 ubp->what = UBP_WHAT_ADDRESS;
-                goto expect_address;
-            } else if (!strcmp(cur_token->value, "oid") || !strcmp(cur_token->value, "operation") || !strcmp(cur_token->value, "number")) {
+                cur_action = ACTION_ADDRESS;
+                GET();
+                EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
+                GET();
+            } else if (!strcmp(cur_token->value, "oid") || !strcmp(cur_token->value, "operation") || !strcmp(cur_token->value, "number") || is_uint(cur_token->value)) {
                 ubp->what = UBP_WHAT_OID;
-                goto expect_address;
+                if (!is_uint(cur_token->value)) {
+                    GET();
+                    EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
+                    GET();
+                    EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "unexpected token type; expecting an identifier");
+                }
+                ubp->oid = (size_t)str_to_uint64(cur_token->value);
+                if (!(ubp->oid)) warn("heaptrace operation IDs (oid) are indexed starting at 1, but user breakpoint is set to oid=0\n");
             } else if (!strcmp(cur_token->value, "segfault") || !strcmp(cur_token->value, "sigsegv") || !strcmp(cur_token->value, "segv")) {
                 ubp->what = UBP_WHAT_SEGFAULT;
                 break;
@@ -246,9 +257,9 @@ static inline uint _is_reference_constant(char *name) {
 
 size_t count_symbol_references(char **se_names) {
     size_t count = 0;
-    UserBreakpoint cur_ubp = USER_BREAKPOINT_HEAD;
+    UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
-        UserBreakpointAddress cur_ubpa = cur_ubp->address;
+        UserBreakpointAddress *cur_ubpa = cur_ubp->address;
         while (cur_ubpa) {
             if (cur_ubpa->symbol_name) {
                 if (!_is_reference_constant(cur_ubpa->symbol_name)) {
@@ -270,14 +281,14 @@ void fill_symbol_references(HeaptraceContext *ctx) {
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
     ASSERT(bin_pme, "cannot find binary base address");
 
-    UserBreakpoint cur_ubp = USER_BREAKPOINT_HEAD;
+    UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
-        UserBreakpointAddress cur_ubpa = cur_ubp->address;
+        UserBreakpointAddress *cur_ubpa = cur_ubp->address;
         while (cur_ubpa) {
             if (cur_ubpa->symbol_name) {
                 if (!_is_reference_constant(cur_ubpa->symbol_name)) {
                     uint resolved = 0;
-                    SymbolEntry *cur_se = ctx->se_head;
+                    SymbolEntry *cur_se = ctx->target_se_head;
                     while (cur_se) {
                         if (!strcmp(cur_ubpa->symbol_name, cur_se->name)) {
                             // found the symbol!
@@ -290,7 +301,7 @@ void fill_symbol_references(HeaptraceContext *ctx) {
                             resolved = 1;
                             break;
                         }
-                        cur_se = cur_se->next;
+                        cur_se = cur_se->_next;
                     }
 
                     if (!resolved) {
@@ -299,7 +310,7 @@ void fill_symbol_references(HeaptraceContext *ctx) {
                         cur_ubpa->address;
                     }
                 } else {
-                    if (!(ctx->is_dynamic) && !strcmp(cur_ubpa->symbol_name, "libc")) {
+                    if (!(ctx->target->is_dynamic) && !strcmp(cur_ubpa->symbol_name, "libc")) {
                         warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
                     }
                 }
@@ -311,19 +322,20 @@ void fill_symbol_references(HeaptraceContext *ctx) {
 }
 
 
-static inline uint64_t _resolve_symbol(HeaptraceContext *ctx) {
+/*static inline uint64_t _resolve_symbol(HeaptraceContext *ctx) {
     // TODO: optimize! maybe fill in the "address" and NULL the "symbol_name" 
     // when symbols are resolved at runtime. First make an array of all sym 
     // names and merge with se_names
     if (!strcmp(ctx->target_at_entry, "entry")) {}
-}
+}*/
 
 
-static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint *ubp, UBPWhen when) {
-    if (ubp->when != when) return 0;
-    if (ubp->what == UBP_WHAT_OID) return ctx->h_oid == ubp->oid;
-    else if (ctx->what == UBP_WHAT_SEGFAULT) return ctx->h_state == PROCESS_STATE_SEGFAULT;
-    else if (ctx->what == UBP_WHAT_ENTRY) return ctx->h_state == PROCESS_STATE_ENTRY;
+static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint *ubp) {
+    if (ubp->what == UBP_WHAT_OID) {
+        if (ubp->when != ctx->h_when) return 0;
+        return ctx->h_oid == ubp->oid;
+    } else if (ubp->what == UBP_WHAT_SEGFAULT) return ctx->h_state == PROCESS_STATE_SEGFAULT;
+    else if (ubp->what == UBP_WHAT_ENTRY) return ctx->h_state == PROCESS_STATE_ENTRY;
     else {
         ASSERT(!!ubp->address, "what=address, but address is NULL. Please report this along with your command line arguments.");
         uint64_t ptr = 0;
@@ -338,19 +350,19 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
             } else if (cur_ubpa->operation == UBPA_OPERATION_SUBTRACT) {
                 ptr -= cur_ptr;
             } else {
-                ASSERT(0, "unknown operation %d. Please report this!", cur_ubpa-operation);
+                ASSERT(0, "unknown operation %d. Please report this!", cur_ubpa->operation);
             }
 
-            cur_ubpa = cur_ubpa->next;
+            cur_ubpa = cur_ubpa->next_operation;
         }
     }
 }
 
 
-void check_should_break(HeaptraceContext *ctx, UBPWhen when) {
-    UserBreakpoint cur_ubp = USER_BREAKPOINT_HEAD;
+void check_should_break(HeaptraceContext *ctx) {
+    UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
-        if (_check_breakpoint_logic(ctx, cur_ubp, when)) {
+        if (_check_breakpoint_logic(ctx, cur_ubp)) {
             if (++(cur_ubp->h_i) >= cur_ubp->count) {
                 // ok, we've hit this breakpoint enough to call gdb!
                 log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");

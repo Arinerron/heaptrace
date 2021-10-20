@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "heap.h"
 #include "options.h"
+#include "user-breakpoint.h"
 
 static inline char *_get_source_section(HeaptraceContext *ctx) {
     if (OPT_VERBOSE) {
@@ -45,7 +46,6 @@ void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     ctx->h_oid = get_oid(ctx);
 
     log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", ctx->h_oid, (size_t)nmemb, (size_t)isize);
-    check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
 
     ctx->between_pre_and_post = "calloc";
     log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
@@ -83,8 +83,6 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
     chunk->ops[STATE_REALLOC] = 0;
 
     ctx->between_pre_and_post = 0;
-
-    check_should_break(ctx, ctx->h_oid, BREAK_AFTER, 1);
 }
 
 
@@ -95,7 +93,6 @@ void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
     ctx->h_oid = get_oid(ctx);
 
     log_heap("... " SYM ": malloc(" SZ ")\t\t", ctx->h_oid, ctx->h_size);
-    check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
 
     ctx->between_pre_and_post = "malloc";
     log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
@@ -133,8 +130,6 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
     chunk->ops[STATE_REALLOC] = 0;
 
     ctx->between_pre_and_post = 0;
-
-    check_should_break(ctx, ctx->h_oid, BREAK_AFTER, 1);
 }
 
 
@@ -177,7 +172,6 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
 
     ctx->between_pre_and_post = "free";
 
-    check_should_break(ctx, ctx->h_oid, BREAK_AT, 0);
     log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
@@ -186,7 +180,6 @@ void post_free(HeaptraceContext *ctx, uint64_t retval) {
     ctx->between_pre_and_post = 0;
     log(COLOR_RESET);
     verbose_heap("%s", _get_source_section(ctx));
-    check_should_break(ctx, ctx->h_oid, BREAK_AFTER, 1);
 }
 
 
@@ -229,8 +222,6 @@ void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmem
     }
 
     ctx->between_pre_and_post = _name;
-
-    check_should_break(ctx, ctx->h_oid, BREAK_AT, 1);
     log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
@@ -317,8 +308,6 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
     }
 
     ctx->between_pre_and_post = 0;
-
-    check_should_break(ctx, ctx->h_oid, BREAK_AFTER, 1);
 }
 
 void post_realloc(HeaptraceContext *ctx, uint64_t new_ptr) {

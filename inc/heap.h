@@ -30,13 +30,10 @@
 #define MAX_META_SIZE 8*8388600 // 64 MB
 #define MAX_CHUNKS MAX_META_SIZE / sizeof(Chunk)
 
-extern char *OPT_GDB_PATH;
-
 extern uint64_t BREAK_AT;
 extern uint64_t BREAK_AFTER;
 extern int BREAK_MAIN;
 extern int BREAK_SIGSEGV;
 
-void check_should_break(HeaptraceContext *ctx, uint64_t oid, uint64_t break_at, int prepend_newline);
 uint64_t get_oid(HeaptraceContext *ctx);
 void show_stats(HeaptraceContext *ctx);

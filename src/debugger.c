@@ -41,6 +41,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                 regs.rip = reg_rip; // NOTE: this is actually $rip-1
                 PTRACE(PTRACE_SETREGS, ctx->pid, NULL, &regs);
                 
+                ctx->h_when = UBP_WHEN_BEFORE;
                 if (!in_breakpoint && !bp->_is_inside && bp->pre_handler) {
                     int nargs = bp->pre_handler_nargs;
                     if (nargs == 0) {
@@ -55,6 +56,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                         ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
                     }
                 }
+                check_should_break(ctx);
                 
                 // reset breakpoint and continue
                 PTRACE(PTRACE_SINGLESTEP, ctx->pid, NULL, NULL);
@@ -94,9 +96,11 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     } else { // this is a return value catcher breakpoint
                         Breakpoint *orig_bp = bp->_bp;
                         if (orig_bp) {
+                            ctx->h_when = UBP_WHEN_AFTER;
                             if (orig_bp->post_handler) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
+                            check_should_break(ctx);
                             _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
                         } else {
@@ -300,7 +304,9 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
 
     if (_was_sigsegv) {
         ctx->h_state = PROCESS_STATE_SEGFAULT;
-        check_should_break(ctx, 1, BREAK_SIGSEGV, 0);
+        ctx->h_when = UBP_WHEN_BEFORE;
+        check_should_break(ctx);
+        ctx->h_when = UBP_WHEN_AFTER;
     }
 
     if (should_detach) {
@@ -346,7 +352,9 @@ void _pre_entry(HeaptraceContext *ctx) {
     ctx->h_state = PROCESS_STATE_ENTRY;
     ctx->should_map_syms = 1;
     _remove_breakpoint(ctx, ctx->bp_entry, BREAKPOINT_OPTS_ALL);
-    check_should_break(ctx, 1, BREAK_MAIN, 0);
+    ctx->h_when = UBP_WHEN_BEFORE;
+    check_should_break(ctx);
+    ctx->h_when = UBP_WHEN_AFTER;
     ctx->h_state = PROCESS_STATE_RUNNING;
 }
 
@@ -620,9 +628,8 @@ void start_debugger(HeaptraceContext *ctx) {
         }
 
         if (ctx->should_map_syms) {
-            fill_symbol_references(ctx);
-
             show_banner |= map_syms(ctx);
+            fill_symbol_references(ctx);
             if (ctx->target->is_stripped && ctx->libc->is_stripped && !strlen(symbol_defs_str)) {
                 warn("Binary appears to be stripped or does not use the glibc heap; heaptrace was not able to resolve any symbols. Please specify symbols via the -s/--symbols argument. e.g.:\n\n      heaptrace --symbols 'malloc=libc+0x100,free=libc+0x200,realloc=bin+123' ./binary\n\nSee the help guide at https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary\n");
                 show_banner = 1;

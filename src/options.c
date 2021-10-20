@@ -205,13 +205,16 @@ int parse_args(int argc, char *argv[]) {
             }
 
             case 'b': {
-                //BREAK_AT = parse_bp(optarg);
-                create_user_breakpoint(optarg);
+                UserBreakpoint *ubp = create_user_breakpoint(optarg);
+                ubp->when = UBP_WHEN_BEFORE;
+                insert_user_breakpoint(ubp);
                 break;
             }
 
             case 'B': {
-                BREAK_AFTER = parse_bp(optarg);
+                UserBreakpoint *ubp = create_user_breakpoint(optarg);
+                ubp->when = UBP_WHEN_AFTER;
+                insert_user_breakpoint(ubp);
                 break;
             }
 
