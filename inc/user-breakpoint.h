@@ -40,6 +40,7 @@ typedef struct UserBreakpoint {
     // extra storage fields
     int oid;
     UserBreakpointAddress *address;
+    uint64_t address_eval; // once the `address` field gets evaluated
 
     // next &&/AND instruction
     // struct UserBreakpoint *next_requirement;

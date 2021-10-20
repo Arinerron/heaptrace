@@ -19,6 +19,7 @@
 #define PTRACE(...) { if (ptrace(__VA_ARGS__) == -1) { warn("ptrace call in %s:%d returned -1: %s (%d):\n\tptrace(%s)\n", __FILE__, __LINE__, strerror(errno), errno, (#__VA_ARGS__)); } }
 
 uint is_uint(char *str);
+uint is_uint_hex(char *str);
 uint64_t str_to_uint64(char *buf);
 
 #endif

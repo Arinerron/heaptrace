@@ -8,6 +8,16 @@ uint is_uint(char *str) {
     return 1;
 }
 
+
+uint is_uint_hex(char *str) {
+    if (!str) return 0;
+    while (*str) {
+        if (!isxdigit(*(str++))) return 0;
+    }
+    return 1;
+}
+
+
 uint64_t str_to_uint64(char *buf) {
     int base = 10;
     if (buf[0] == '0') {

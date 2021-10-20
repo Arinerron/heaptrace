@@ -28,7 +28,6 @@ typedef struct HeaptraceContext {
     // init settings
     char **target_argv;
     char **se_names;
-    SymbolEntry *target_se_head;
 
     // pre-analysis settings
     HeaptraceFile *target;
@@ -37,8 +36,6 @@ typedef struct HeaptraceContext {
     Breakpoint **pre_analysis_bps;
     Breakpoint *bp_entry;
 
-    SymbolEntry *libc_se_head;
-    
     // runtime settings
     uint pid;
     int status; // waitpid
@@ -51,6 +48,7 @@ typedef struct HeaptraceContext {
 
     UBPWhen h_when;
     ProcessState h_state;
+    uint64_t h_rip;
 
     size_t h_size;
     uint64_t h_ptr;

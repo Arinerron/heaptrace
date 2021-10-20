@@ -56,6 +56,8 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                         ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
                     }
                 }
+                printf("CHECK A\n");
+                ctx->h_when = UBP_WHEN_BEFORE;
                 check_should_break(ctx);
                 
                 // reset breakpoint and continue
@@ -100,6 +102,8 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                             if (orig_bp->post_handler) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
+                            ctx->h_when = UBP_WHEN_AFTER;
+                            printf("CHECK B\n");
                             check_should_break(ctx);
                             _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
@@ -536,6 +540,11 @@ void start_debugger(HeaptraceContext *ctx) {
 
     int first_run = 1;
     while(KEEP_RUNNING && waitpid(ctx->pid, &(ctx->status), 0) != -1) {
+        struct user_regs_struct regs;
+        if (ptrace(PTRACE_GETREGS, ctx->pid, NULL, &regs) != -1) {
+            ctx->h_rip = regs.rip;
+        }
+        
         // we have to do a waitpid(), otherwise the process name is still 
         // /path/to/heaptrace. We need the correct path for pre_analysis. But 
         // we need the pre_analysis for look_for_brk too.
