@@ -412,7 +412,7 @@ uint map_syms(HeaptraceContext *ctx) {
     ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     
     // quick debug info about addresses/paths we found
-    ASSERT(bin_pme, "Failed to find target binary in process mapping (!bin_pme). Please report this!");
+    ASSERT(bin_pme, "failed to find target binary in process mapping (!bin_pme). Please report this!");
     debug("found memory maps... binary (%s): " U64T "-" U64T, bin_pme->name, bin_pme->base, bin_pme->end);
     if (libc_pme) {
         char *name = libc_pme->name;
@@ -518,7 +518,7 @@ void start_debugger(HeaptraceContext *ctx) {
         ctx->pid = OPT_ATTACH_PID;
         info("Attaching to target process PID %d...\n", ctx->pid);
         if (ptrace(PTRACE_ATTACH, ctx->pid, NULL, NULL) == -1) {
-            fatal("Failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
+            fatal("failed to attach to process PID %d. Are you sure you have rights to ptrace the process?\n", ctx->pid);
             exit(1);
         }
         show_banner = 1;

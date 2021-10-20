@@ -1,6 +1,7 @@
 #include "logging.h"
 #include "util.h"
 #include "user-breakpoint.h"
+#include "debugger.h"
 
 
 UserBreakpoint *USER_BREAKPOINT_HEAD = 0;
@@ -65,15 +66,12 @@ UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint) {
             }
         }
 
-        //if (!in_token) 
-        {
-            if (c == ':' || c == '+' || c == '-' || c == '=') {
-                next_token = _create_token(start_ptr, 1, UBPT_TYPE_PUNCTUATOR, i - (s - start_ptr));
-                if (!token_head) token_head = cur_token;
-                if (cur_token) cur_token->next = next_token;
-                cur_token = next_token;
-                in_token = 0;
-            }
+        if (c == ':' || c == '+' || c == '-' || c == '=') {
+            next_token = _create_token(start_ptr, 1, UBPT_TYPE_PUNCTUATOR, i - (s - start_ptr));
+            if (!token_head) token_head = cur_token;
+            if (cur_token) cur_token->next = next_token;
+            cur_token = next_token;
+            in_token = 0;
         }
     }
 
@@ -109,15 +107,17 @@ static UserBreakpointToken *_parse_token_expression(UserBreakpoint *ubp, UserBre
     cur_ubpa->operation = UBPA_OPERATION_ADD;
 
     EXPECT(!!cur_token, "expression missing");
+    uint _cur_ubpa_filled = 0;
     while (1) {
         if (cur_token->type == UBPT_TYPE_PUNCTUATOR) {
             // if this isn't the first run...
-            if (ubp->address != cur_ubpa) {
+            if (_cur_ubpa_filled) {
                 // save current ubpa
                 UserBreakpointAddress *next_ubpa = (UserBreakpointAddress *)calloc(1, sizeof(UserBreakpointAddress));
                 cur_ubpa->next_operation = next_ubpa;
                 cur_ubpa = next_ubpa;
                 cur_ubpa->operation = UBPA_OPERATION_ADD;
+                _cur_ubpa_filled = 0;
             }
 
             if (!strcmp(cur_token->value, "+")) {
@@ -135,6 +135,7 @@ static UserBreakpointToken *_parse_token_expression(UserBreakpoint *ubp, UserBre
 
             EXPECT(!!NEXT(), "missing expression after operator");
         } else { // cur_token->type == UBPT_TYPE_IDENTIFIER
+            _cur_ubpa_filled = 1;
             if (is_uint(cur_token->value) || (strlen(cur_token->value) > 2 && is_uint_hex(cur_token->value + 2) && (
                             cur_token->value[0] == '0' && (cur_token->value[1] == 'x' || cur_token->value[1] == 'o' || cur_token->value[1] == 'b')))) {
                 int endp;
@@ -148,6 +149,10 @@ static UserBreakpointToken *_parse_token_expression(UserBreakpoint *ubp, UserBre
         if (!cur_token) break; // make sure this while look runs at least once
     }
 
+    UserBreakpointAddress *ccur_ubpa = ubp->address;
+    while (ccur_ubpa) {
+        ccur_ubpa = ccur_ubpa->next_operation;
+    }
     return cur_token;
 }
 
@@ -246,8 +251,7 @@ void free_user_breakpoints() {
 
 
 static inline uint _is_reference_constant(char *name) {
-    // TODO: check if we need "binary", "target", "glibc", etc
-    if (!strcmp(name, "bin") || !strcmp(name, "libc")) {
+    if (!strcmp(name, "bin") || !strcmp(name, "libc") || !strcmp(name, "binary") || !strcmp(name, "target")) {
         return 1;
     }
 
@@ -303,6 +307,8 @@ static inline uint64_t _evaluate_user_breakpoint_address(UserBreakpoint *ubp) {
 // this is triggered by user breakpoints
 void _pre_user_breakpoint(HeaptraceContext *ctx) {
     ctx->h_state = PROCESS_STATE_RUNNING;
+    ctx->h_when = UBP_WHEN_CUSTOM_BP; // only triggers on _pre_user_breakpoint that way
+    check_should_break(ctx);
 }
 
 
@@ -324,6 +330,7 @@ void install_user_breakpoints(HeaptraceContext *ctx) {
 
 void fill_symbol_references(HeaptraceContext *ctx) {
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
+    ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
     ASSERT(bin_pme, "cannot find binary base address");
 
     UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
@@ -338,8 +345,14 @@ void fill_symbol_references(HeaptraceContext *ctx) {
                         if (!strcmp(cur_ubpa->symbol_name, cur_se->name)) {
                             // found the symbol!
                             cur_ubpa->symbol_name = 0;
-                            if (cur_se->type != SE_TYPE_STATIC) {
-                                warn("user breakpoint \"%s\" references symbol %s which is a dynamic symbol. Only static symbols are currently supported.\n", cur_ubp->name, cur_se->name);
+                            if (cur_se->type == SE_TYPE_UNRESOLVED) {
+                                log("\n");
+                                fatal("failed to resolve symbol \"%s\" referenced in user breakpoint \"%s\".\n", cur_se->name, cur_ubp->name);
+                                end_debugger(ctx, 0);
+                            } else if (cur_se->type != SE_TYPE_STATIC) {
+                                log("\n");
+                                fatal("user breakpoint \"%s\" references symbol %s which is a dynamic symbol. Only static symbols are currently supported. You may use the `libc` variable to reference the glibc base address instead.\n", cur_ubp->name, cur_se->name);
+                                end_debugger(ctx, 0);
                             } else {
                                 cur_ubpa->address = bin_pme->base + cur_se->offset;
                                 if (ctx->target->is_dynamic) cur_ubpa->address += cur_se->_sub_offset;
@@ -353,11 +366,20 @@ void fill_symbol_references(HeaptraceContext *ctx) {
                     if (!resolved) {
                         warn("user breakpoint \"%s\" references %s but the symbol could not be resolved. Will assume symbol %s=0x0\n", cur_ubp->name, cur_ubpa->symbol_name, cur_ubpa->symbol_name);
                         cur_ubpa->symbol_name = 0;
-                        cur_ubpa->address;
+                        cur_ubpa->address = 0;
                     }
                 } else {
-                    if (!(ctx->target->is_dynamic) && !strcmp(cur_ubpa->symbol_name, "libc")) {
-                        warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
+                    if (!strcmp(cur_ubpa->symbol_name, "libc")) {
+                        if (!(ctx->target->is_dynamic)) {
+                            warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
+                        } else {
+                            ASSERT(!!libc_pme, "failed to find glibc /proc/pid/maps entry for breakpoint \"%s\"", cur_ubp->name)
+                            cur_ubpa->symbol_name = 0;
+                            cur_ubpa->address = libc_pme->base;
+                        }
+                    } else if (!strcmp(cur_ubpa->symbol_name, "bin") || !strcmp(cur_ubpa->symbol_name, "binary") || !strcmp(cur_ubpa->symbol_name, "target")) {
+                        cur_ubpa->symbol_name = 0;
+                        cur_ubpa->address = bin_pme->base;
                     }
                 }
             }
@@ -390,7 +412,7 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
     } else if (ubp->what == UBP_WHAT_SEGFAULT) return ctx->h_state == PROCESS_STATE_SEGFAULT;
     else if (ubp->what == UBP_WHAT_ENTRY) return ctx->h_state == PROCESS_STATE_ENTRY;
     else {
-        if (UBP_WHEN_BEFORE != ctx->h_when) return 0;
+        if (UBP_WHEN_CUSTOM_BP != ctx->h_when) return 0;
         return ubp->address_eval && ubp->address_eval == ctx->h_rip - 1;
     }
     return 0;

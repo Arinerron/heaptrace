@@ -25,7 +25,7 @@ typedef struct UserBreakpointAddress {
 } UserBreakpointAddress;
 
 
-typedef enum UBPWhen {UBP_WHEN_BEFORE, UBP_WHEN_AFTER} UBPWhen;
+typedef enum UBPWhen {UBP_WHEN_BEFORE, UBP_WHEN_AFTER, UBP_WHEN_CUSTOM_BP} UBPWhen;
 typedef enum UBPWhat {UBP_WHAT_OID, UBP_WHAT_ADDRESS, UBP_WHAT_SEGFAULT, UBP_WHAT_ENTRY} UBPWhat;
 
 typedef struct UserBreakpoint {
@@ -34,7 +34,7 @@ typedef struct UserBreakpoint {
 
     // data for breakpoint-determining logic
     UBPWhat what;
-    UBPWhen when; // [UBP_WHEN_BEFORE, UBP_WHEN_AFTER]
+    UBPWhen when; // [UBP_WHEN_BEFORE, UBP_WHEN_AFTER, UBP_WHEN_CUSTOM_BP]
     size_t count;
 
     // extra storage fields
