@@ -302,9 +302,7 @@ static inline uint64_t _evaluate_user_breakpoint_address(UserBreakpoint *ubp) {
 
 // this is triggered by user breakpoints
 void _pre_user_breakpoint(HeaptraceContext *ctx) {
-    ctx->h_state = PROCESS_STATE_ENTRY;
-    ctx->h_when = UBP_WHEN_BEFORE;
-    check_should_break(ctx);
+    ctx->h_state = PROCESS_STATE_RUNNING;
 }
 
 
@@ -318,8 +316,8 @@ void install_user_breakpoints(HeaptraceContext *ctx) {
             bp->pre_handler = _pre_user_breakpoint;
             bp->pre_handler_nargs = 0;
             install_breakpoint(ctx, bp);
-            cur_ubp = cur_ubp->next;
         }
+        cur_ubp = cur_ubp->next;
     }
 }
 
@@ -367,7 +365,9 @@ void fill_symbol_references(HeaptraceContext *ctx) {
         }
 
         // now, evaluate it
-        cur_ubp->address_eval = _evaluate_user_breakpoint_address(cur_ubp);
+        if (cur_ubp->address) {
+            cur_ubp->address_eval = _evaluate_user_breakpoint_address(cur_ubp);
+        }
         cur_ubp = cur_ubp->next;
     }
 
@@ -391,7 +391,6 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
     else if (ubp->what == UBP_WHAT_ENTRY) return ctx->h_state == PROCESS_STATE_ENTRY;
     else {
         if (UBP_WHEN_BEFORE != ctx->h_when) return 0;
-        printf("ASDFADSASD %d\n", ctx->h_when);
         return ubp->address_eval && ubp->address_eval == ctx->h_rip - 1;
     }
     return 0;
@@ -402,10 +401,10 @@ void check_should_break(HeaptraceContext *ctx) {
     UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
         if (_check_breakpoint_logic(ctx, cur_ubp)) {
-            printf("cur_ubp hi: %d >= %d\n", cur_ubp->h_i, cur_ubp->count);
+            debug("user breakpoint \"%s\" evaluated to true. rip=%p, h_when=%d, i/count=%d/%d\n", cur_ubp->name, ctx->h_rip, ctx->h_when, cur_ubp->h_i + 1, cur_ubp->count);
             if (++(cur_ubp->h_i) >= cur_ubp->count) {
                 // ok, we've hit this breakpoint enough to call gdb!
-                log(COLOR_ERROR "    [   PROCESS PAUSED   ]\n");
+                log(COLOR_ERROR "\n    [   PROCESS PAUSED   ]\n");
                 log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "%s -p %d\n" COLOR_RESET, OPT_GDB_PATH, ctx->pid);
 
                 // launch gdb

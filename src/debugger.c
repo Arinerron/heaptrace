@@ -34,7 +34,6 @@ void _check_breakpoints(HeaptraceContext *ctx) {
         if (bp) {
             if (bp->addr == reg_rip) { // hit the breakpoint
                 _was_bp = 1;
-                //printf("Hit breakpoint %s (0x%x)\n", bp->name, reg_rip);
                 PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, (uint64_t)bp->orig_data);
 
                 // move rip back by one
@@ -56,7 +55,6 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                         ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
                     }
                 }
-                printf("CHECK A\n");
                 ctx->h_when = UBP_WHEN_BEFORE;
                 check_should_break(ctx);
                 
@@ -103,7 +101,6 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
                             ctx->h_when = UBP_WHEN_AFTER;
-                            printf("CHECK B\n");
                             check_should_break(ctx);
                             _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
@@ -117,9 +114,6 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     // reinstall original breakpoint
                     PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                 }
-
-                //printf("BREAKPOINT peeked 0x%x at breakpoint 0x%x\n", ptrace(PTRACE_PEEKDATA, pid, reg_rip, 0L), reg_rip);
-
             }
         }
     }
