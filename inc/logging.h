@@ -34,7 +34,7 @@ extern FILE *output_fd;
 #define color_log(...) { if (!OPT_NO_COLOR) { fprintf(output_fd, ##__VA_ARGS__); } }
 #define color_verbose(...) { if (!OPT_NO_COLOR && OPT_VERBOSE) { fprintf(output_fd, ##__VA_ARGS__); } }
 
-#define log(fmt, ...) fprintf(output_fd, (fmt), ##__VA_ARGS__); // XXX: ansi colors to file?
+#define log(fmt, ...) fprintf(output_fd, (fmt), ##__VA_ARGS__) // XXX: ansi colors to file?
 #define info(fmt, ...) { color_log(COLOR_LOG); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); } // XXX: ansi colors to file?
 #define debug(fmt, ...) {if (OPT_DEBUG) { color_log(COLOR_RESET); log("[ ] "); color_log(COLOR_RESET_ITALIC); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }}
 #define debug2(fmt, ...) {if (OPT_DEBUG) { color_log(COLOR_RESET COLOR_RESET_ITALIC); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }}
