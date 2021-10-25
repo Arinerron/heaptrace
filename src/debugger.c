@@ -483,8 +483,8 @@ uint map_syms(HeaptraceContext *ctx) {
 
     // print the type of binary etc
     ASSERT(ctx->target, "!ctx->target. Please report this.");
+    color_verbose(COLOR_RESET COLOR_RESET_BOLD);
     if (ctx->target->is_dynamic) {
-        color_verbose(COLOR_RESET_BOLD);
         verbose("Dynamically-linked");
         if (ctx->target->is_stripped) verbose(", stripped");
         verbose(" binary")
@@ -497,7 +497,6 @@ uint map_syms(HeaptraceContext *ctx) {
             ctx->libc_version = ptr;
         } else { verbose("\n"); }
     } else {
-        color_verbose(COLOR_RESET_BOLD);
         verbose("Statically-linked");
         if (ctx->target->is_stripped) verbose(", stripped");
         verbose(" binary\n");
