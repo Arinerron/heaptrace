@@ -9,6 +9,7 @@
 #include "chunk.h"
 #include "breakpoint.h"
 #include "user-breakpoint.h"
+#include "logging.h"
 
 typedef struct HeaptraceFile HeaptraceFile;
 
@@ -76,6 +77,8 @@ typedef struct HeaptraceContext {
 
     // breakpoints storage globals
     Breakpoint *breakpoints[BREAKPOINTS_COUNT];
+
+    HandlerLogMessage hlm;
 } HeaptraceContext;
 
 

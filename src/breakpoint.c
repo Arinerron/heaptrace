@@ -52,7 +52,9 @@ void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int opts) {
         ptrace(PTRACE_POKEDATA, ctx->pid, bp->addr, bp->orig_data); // ignore error
     }
 
-    if (opts & BREAKPOINT_OPT_FREE) free(bp);
+    if (opts & BREAKPOINT_OPT_FREE) {
+        free(bp);
+    }
 }
 
 

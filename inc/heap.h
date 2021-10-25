@@ -32,3 +32,4 @@
 
 uint64_t get_oid(HeaptraceContext *ctx);
 void show_stats(HeaptraceContext *ctx);
+

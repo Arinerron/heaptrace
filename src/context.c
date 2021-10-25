@@ -16,6 +16,7 @@ HeaptraceContext *alloc_ctx() {
     ctx->h_ret_ptr_section_type = PROCELF_TYPE_UNKNOWN;
     ctx->target = alloc_file(ctx);
     ctx->libc = alloc_file(ctx);
+    ctx->hlm.warnings = malloc(HLM_WARNINGS_SIZE + 2);
     return ctx;
 }
 
@@ -33,6 +34,8 @@ void *free_ctx(HeaptraceContext *ctx) {
     free_se_list(ctx->libc->all_static_se_head);
     free(ctx->target);
     free(ctx->libc);
+
+    free(ctx->hlm.warnings);
 
     free(ctx);
 }

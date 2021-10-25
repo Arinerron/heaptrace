@@ -5,7 +5,19 @@
 #include "user-breakpoint.h"
 
 
-#define PRINT_SOURCE() { if (OPT_VERBOSE) { char *SRC_FUNC = get_source_function(ctx); verbose_heap("called by: " COLOR_LOG_BOLD "%s" COLOR_LOG "; returns to " PTR, SRC_FUNC, ctx->h_ret_ptr); free(SRC_FUNC); } }
+static void PRINT_SOURCE(HeaptraceContext *ctx) {
+    if (OPT_VERBOSE) {
+        char *SRC_FUNC = get_source_function(ctx);
+        HandlerLogMessageNote *note_src = insert_note(ctx);
+        concat_note(note_src, "called by: ");
+        concat_note_color(note_src, COLOR_LOG_BOLD);
+        concat_note(note_src, "%s", SRC_FUNC);
+        free(SRC_FUNC);
+
+        HandlerLogMessageNote *note_ret = insert_note(ctx);
+        concat_note(note_ret, "returns to 0x%lx", ctx->h_ret_ptr);
+    }
+}
 
 
 // check if pointer is in stack, libc, or binary, and error if so
@@ -26,20 +38,14 @@ static void _check_heap_ptr_retval(HeaptraceContext *ctx, uint64_t ptr) {
 
 void pre_calloc(HeaptraceContext *ctx, uint64_t nmemb, uint64_t isize) {
     ctx->h_size = (size_t)isize * (size_t)nmemb;
-    
+
     ctx->calloc_count++;
     ctx->h_oid = get_oid(ctx);
-
-    log_heap("... " SYM ": calloc(" SZ ", " SZ ")\t", ctx->h_oid, (size_t)nmemb, (size_t)isize);
-
-    ctx->between_pre_and_post = "calloc";
-    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
 void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
-    log_heap("=  " PTR "\n", PTR_ARG(ptr));
-    PRINT_SOURCE()
+    PRINT_SOURCE(ctx);
 
     // store meta info
     Chunk *chunk = alloc_chunk(ctx, ptr);
@@ -66,27 +72,18 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
     chunk->ops[STATE_MALLOC] = ctx->h_oid;
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
-
-    ctx->between_pre_and_post = 0;
 }
 
 
 void pre_malloc(HeaptraceContext *ctx, uint64_t isize) {
     ctx->h_size = (size_t)isize;
-    
     ctx->malloc_count++;
     ctx->h_oid = get_oid(ctx);
-
-    log_heap("... " SYM ": malloc(" SZ ")\t\t", ctx->h_oid, ctx->h_size);
-
-    ctx->between_pre_and_post = "malloc";
-    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
 void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
-    log_heap("=  " PTR "\n", PTR_ARG(ptr));
-    PRINT_SOURCE()
+    PRINT_SOURCE(ctx);
 
     // store meta info
     Chunk *chunk = alloc_chunk(ctx, ptr);
@@ -113,27 +110,15 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
     chunk->ops[STATE_MALLOC] = ctx->h_oid;
     chunk->ops[STATE_FREE] = 0;
     chunk->ops[STATE_REALLOC] = 0;
-
-    ctx->between_pre_and_post = 0;
 }
 
 
 void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
     ctx->h_ptr = iptr;
-
     ctx->free_count++;
     ctx->h_oid = get_oid(ctx);
 
     Chunk *chunk = find_chunk(ctx, ctx->h_ptr);
-
-    log_heap("... " SYM ": free(", ctx->h_oid);
-    if (chunk && chunk->ops[STATE_MALLOC]) {
-        log_heap(SYM ")\t\t   %s(" SYM_IT "=%s" PTR_IT "%s)", chunk->ops[STATE_MALLOC], COLOR_LOG_ITALIC, chunk->ops[STATE_MALLOC], COLOR_LOG_BOLD, PTR_ARG(ctx->h_ptr), COLOR_LOG_ITALIC);
-    } else {
-        log_heap(PTR ")", PTR_ARG(ctx->h_ptr));
-    }
-    //describe_symbol();
-    log("\n");
 
     // find meta info, check to make sure it's all good
     if (!chunk) {
@@ -154,17 +139,12 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
         chunk->state = STATE_FREE;
         chunk->ops[STATE_FREE] = ctx->h_oid;
     }
-
-    ctx->between_pre_and_post = "free";
-
-    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
 void post_free(HeaptraceContext *ctx, uint64_t retval) {
-    ctx->between_pre_and_post = 0;
     log(COLOR_RESET);
-    PRINT_SOURCE()
+    PRINT_SOURCE(ctx);
 }
 
 
@@ -175,39 +155,20 @@ void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmem
 
     ctx->h_ptr = iptr;
     ctx->h_size = isize * nmemb;
-
     if (_type == 1) ctx->realloc_count++; else if (_type == 2) ctx->reallocarray_count++;
     ctx->h_oid = get_oid(ctx);
 
     ctx->h_orig_chunk = alloc_chunk(ctx, ctx->h_ptr);
 
-    log_heap("... " SYM ": %s(", ctx->h_oid, _name);
-    if (ctx->h_orig_chunk && ctx->h_orig_chunk->ops[STATE_MALLOC]) {
-        // #oid symbol resolved
-        log_heap(SYM ", ", ctx->h_orig_chunk->ops[STATE_MALLOC]);
-        if (_type == 2) log_heap(SZ ", ", SZ_ARG(nmemb));
-        log_heap(SZ ")\t", SZ_ARG(isize));
-    } else {
-        // could not find #oid, so just use addr
-        log_heap(PTR ", ", PTR_ARG(ctx->h_ptr));
-        if (_type == 2) log_heap(SZ ", ", SZ_ARG(nmemb));
-        log_heap(SZ ")\t", SZ_ARG(isize));
-    }
-
     if (ctx->h_orig_chunk && ctx->h_orig_chunk->state == STATE_FREE) {
-        log_heap("\n");
         warn_heap("attempting to %s a previously-freed chunk", _name);
         warn_heap2("allocated in operation " SYM, ctx->h_orig_chunk->ops[STATE_MALLOC]);
         warn_heap2("freed in operation " SYM, ctx->h_orig_chunk->ops[STATE_FREE]);
     } else if (ctx->h_ptr && !ctx->h_orig_chunk) {
         // ptr && because https://github.com/Arinerron/heaptrace/issues/9
         //   0x0 is a special value
-        log_heap("\n");
         warn_heap("attempting to %s a chunk that was never allocated", _name);
     }
-
-    ctx->between_pre_and_post = _name;
-    log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
 }
 
 
@@ -226,12 +187,7 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
     char *_name = "realloc";
     if (_type == 2) _name = "reallocarray";
 
-    log_heap("=  " PTR, PTR_ARG(new_ptr));
-    if (ctx->h_orig_chunk && ctx->h_orig_chunk->ops[STATE_MALLOC]) {
-        log("\t%s(" SYM_IT "=" PTR_IT ")", COLOR_LOG_ITALIC, ctx->h_orig_chunk->ops[STATE_MALLOC], PTR_ARG(ctx->h_ptr));
-    }
-    log_heap("\n");
-    PRINT_SOURCE()
+    PRINT_SOURCE(ctx);
     //warn("this code is untested; please report any issues you come across @ https://github.com/Arinerron/heaptrace/issues/new/choose");
 
     Chunk *new_chunk = alloc_chunk(ctx, new_ptr);
@@ -291,8 +247,6 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
             ctx->h_orig_chunk->ops[STATE_FREE] = ctx->h_oid;
         } // no need for else if (!ctx->h_orig_chunk) because !ctx->h_orig_chunk is above
     }
-
-    ctx->between_pre_and_post = 0;
 }
 
 void post_realloc(HeaptraceContext *ctx, uint64_t new_ptr) {

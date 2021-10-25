@@ -14,7 +14,7 @@
 
 #include "util.h"
 
-#define BREAKPOINTS_COUNT 16
+#define BREAKPOINTS_COUNT 32
 #include "context.h"
 
 #ifndef BREAKPOINT_H
@@ -33,6 +33,12 @@ typedef struct Breakpoint {
     int pre_handler_nargs;
     void *post_handler;
 
+    // for HLM logging
+    char *func_name;
+    uint arg_options[3];
+    uint ret_options;
+
+    // internal use only
     int _is_inside;
     void *_bp;
 } Breakpoint;

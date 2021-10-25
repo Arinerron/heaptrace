@@ -16,7 +16,6 @@ void show_stats(HeaptraceContext *ctx) {
     uint64_t unfreed_sum = count_unfreed_bytes(ctx->chunk_root);
 
     if (get_oid(ctx) || unfreed_sum) {
-        if (unfreed_sum && OPT_VERBOSE) log(COLOR_LOG "------\n");
         log(COLOR_LOG "Statistics:\n");
         if (ctx->malloc_count) log("... mallocs count: " CNT "\n", ctx->malloc_count);
         if (ctx->calloc_count) log("... callocs count: " CNT "\n", ctx->calloc_count);

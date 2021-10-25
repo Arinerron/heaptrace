@@ -41,20 +41,36 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                 PTRACE(PTRACE_SETREGS, ctx->pid, NULL, &regs);
                 
                 ctx->h_when = UBP_WHEN_BEFORE;
-                if (!in_breakpoint && !bp->_is_inside && bp->pre_handler) {
-                    int nargs = bp->pre_handler_nargs;
-                    if (nargs == 0) {
-                        ((void(*)(HeaptraceContext *))bp->pre_handler)(ctx);
-                    } else if (nargs == 1) {
-                        ((void(*)(HeaptraceContext *, uint64_t))bp->pre_handler)(ctx, regs.rdi);
-                    } else if (nargs == 2) {
-                        ((void(*)(HeaptraceContext *, uint64_t, uint64_t))bp->pre_handler)(ctx, regs.rdi, regs.rsi);
-                    } else if (nargs == 3) {
-                        ((void(*)(HeaptraceContext *, uint64_t, uint64_t, uint64_t))bp->pre_handler)(ctx, regs.rdi, regs.rsi, regs.rdx);
-                    } else {
-                        ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
+                
+                if (!in_breakpoint && !bp->_is_inside) {
+                    reset_handler_log_message(ctx);
+                    if (bp->pre_handler) {
+                        int nargs = bp->pre_handler_nargs;
+                        ctx->hlm.func_name = bp->func_name;
+                        ctx->hlm.ret_options = bp->ret_options;
+                        if (ctx->hlm.func_name) memcpy(ctx->hlm.arg_options, bp->arg_options, sizeof(uint) * 3);
+                        ctx->hlm.arg_ptr[0] = regs.rdi;
+                        ctx->hlm.arg_ptr[1] = regs.rsi;
+                        ctx->hlm.arg_ptr[2] = regs.rdx;
+                        ctx->between_pre_and_post = bp->func_name;
+                        print_handler_log_message_1(ctx);
+                        if (nargs == 0) {
+                            ((void(*)(HeaptraceContext *))bp->pre_handler)(ctx);
+                        } else if (nargs == 1) {
+                            ((void(*)(HeaptraceContext *, uint64_t))bp->pre_handler)(ctx, regs.rdi);
+                        } else if (nargs == 2) {
+                            ((void(*)(HeaptraceContext *, uint64_t, uint64_t))bp->pre_handler)(ctx, regs.rdi, regs.rsi);
+                        } else if (nargs == 3) {
+                            ((void(*)(HeaptraceContext *, uint64_t, uint64_t, uint64_t))bp->pre_handler)(ctx, regs.rdi, regs.rsi, regs.rdx);
+                        } else {
+                            ASSERT(0, "nargs is only supported up to 3 args; ignoring bp pre_handler. Please report this!");
+                        }
+
+                        color_log(COLOR_ERROR_BOLD); // this way any errors inside func are bold red
                     }
                 }
+
+                // TODO: see if we can move this into the previous if block
                 ctx->h_when = UBP_WHEN_BEFORE;
                 check_should_break(ctx);
                 
@@ -102,6 +118,8 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                                 ((void(*)(HeaptraceContext *, uint64_t))orig_bp->post_handler)(ctx, regs.rax);
                             }
                             ctx->h_when = UBP_WHEN_AFTER;
+                            ctx->hlm.ret_ptr = regs.rax;
+                            print_handler_log_message_2(ctx);
                             check_should_break(ctx);
                             _remove_breakpoint(ctx, bp, BREAKPOINT_OPTS_ALL);
                             orig_bp->_is_inside = 0;
@@ -115,6 +133,7 @@ void _check_breakpoints(HeaptraceContext *ctx) {
                     // reinstall original breakpoint
                     PTRACE(PTRACE_POKEDATA, ctx->pid, reg_rip, ((uint64_t)bp->orig_data & ~((uint64_t)0xff)) | ((uint64_t)'\xcc' & (uint64_t)0xff));
                 }
+                ctx->between_pre_and_post = 0;
             }
         }
     }
@@ -248,10 +267,19 @@ uint evaluate_funcid(HeaptraceFile *hf) {
                 if (!strcmp(sig->name, se->name)) {
                     if (!_printed_debug) {
                         _printed_debug = 1;
-                        info("Attempting to identify function signatures in " COLOR_LOG_BOLD "%s" COLOR_LOG "...\n", hf->path);
+                        info("Attempting to identify function signatures in ");
+                        color_log(COLOR_LOG_BOLD);
+                        log("%s", hf->path);
+                        color_log(COLOR_LOG); 
+                        log("...\n");
                         show_banner = 1;
                     }
-                    info(COLOR_LOG "* found " COLOR_LOG_BOLD "%s" COLOR_LOG " at " PTR ".\n" COLOR_RESET, sig->name, PTR_ARG(sig->offset));
+                    info("* found ");
+                    color_log(COLOR_LOG_BOLD);
+                    log("%s", sig->name);
+                    color_log(COLOR_LOG);
+                    log(" at " PTR ".\n", PTR_ARG(sig->offset));
+                    color_log(COLOR_RESET);
                     se->offset = ptr;
                     se->_sub_offset = 0;
                     se->type = SE_TYPE_STATIC; // to make sure it gets resolved as bin_base+addr
@@ -274,27 +302,45 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
 
     uint _was_sigsegv = 0;
     uint _show_newline = 0;
-    log(COLOR_LOG "\n================================= " COLOR_LOG_BOLD "END HEAPTRACE" COLOR_LOG " ================================\n" COLOR_RESET);
+    color_log(COLOR_LOG);
+    print_header_bars(0, 0);
+    log("\n");
 
     if (ctx->status16 == PTRACE_EVENT_EXEC) {
-        log(COLOR_ERROR "Detaching heaptrace because process made a call to exec()");
+        color_log(COLOR_ERROR);
+        log("Detaching heaptrace because process made a call to exec()");
         should_detach = 1;
         _show_newline = 1;
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ");
+        log(".");
+        color_log(COLOR_RESET);
+        log(" ");
     } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
-        log(COLOR_ERROR "Process exited with signal " COLOR_ERROR_BOLD "%d" COLOR_ERROR " (" COLOR_ERROR_BOLD "%s" COLOR_ERROR ")", ctx->code, strsignal(ctx->code));
+        color_log(COLOR_ERROR);
+        log("Process exited with signal ");
+        color_log(COLOR_ERROR_BOLD);
+        log("%d", ctx->code);
+        color_log(COLOR_ERROR);
+        log(" (");
+        color_log(COLOR_ERROR_BOLD);
+        log("%s", strsignal(ctx->code));
+        color_log(COLOR_ERROR);
+        log(")");
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
-        log("." COLOR_RESET " ");
+        log(".");
+        color_log(COLOR_RESET);
+        log(" ");
         _was_sigsegv = 1;
         _show_newline = 1;
     }
 
     if (WCOREDUMP(ctx->status)) {
-        log(COLOR_ERROR "Core dumped. " COLOR_LOG);
+        color_log(COLOR_ERROR);
+        log("Core dumped. ");
+        color_log(COLOR_LOG);
     }
 
     if (_show_newline) log("\n");
@@ -314,6 +360,9 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     } else {
         kill(ctx->pid, SIGINT);
     }
+
+    print_header_bars("END HEAPTRACE", 13);
+
     free_ctx(ctx);
     free_user_breakpoints();
     exit(0);
@@ -357,25 +406,26 @@ void _pre_entry(HeaptraceContext *ctx) {
     ctx->h_state = PROCESS_STATE_RUNNING;
 }
 
+const struct {
+    char *name;
+    void *pre_handler;
+    size_t pre_handler_nargs;
+    void *post_handler;
+    uint arg_options[3];
+    uint ret_options;
+} breakpoint_defs[] = {
+    {"malloc", pre_malloc, 1, post_malloc, {HLM_OPTION_SIZE, 0, 0}, 1},
+    {"calloc", pre_calloc, 2, post_calloc, {HLM_OPTION_SIZE, HLM_OPTION_SIZE, 0}, 1},
+    {"free", pre_free, 1, post_free, {HLM_OPTION_SYMBOL, 0, 0}, 0},
+    {"realloc", pre_realloc, 2, post_realloc, {HLM_OPTION_SYMBOL, HLM_OPTION_SIZE, 0}, 1},
+    {"reallocarray", pre_reallocarray, 3, post_reallocarray, {HLM_OPTION_SYMBOL, HLM_OPTION_SIZE, HLM_OPTION_SIZE}, 1}
+};
 
 void pre_analysis(HeaptraceContext *ctx) {
-    struct {
-        char *name;
-        void *pre_handler;
-        size_t pre_handler_nargs;
-        void *post_handler;
-    } breakpoint_defs[] = {
-        {"malloc", pre_malloc, 1, post_malloc},
-        {"calloc", pre_calloc, 2, post_calloc},
-        {"free", pre_free, 1, post_free},
-        {"realloc", pre_realloc, 2, post_realloc},
-        {"reallocarray", pre_reallocarray, 3, post_reallocarray}
-    };
-
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
     size_t ubp_sym_refs_c = count_symbol_references((char **)0);
 
-    Breakpoint **bps = (Breakpoint **)malloc(sizeof(Breakpoint *) * (breakpoint_defs_c + 1));
+    Breakpoint **bps = (Breakpoint **)calloc(breakpoint_defs_c + 1, sizeof(Breakpoint *));
     ctx->pre_analysis_bps = bps;
 
     size_t se_names_sz = sizeof(char *) * (breakpoint_defs_c + ubp_sym_refs_c + 1);
@@ -395,6 +445,13 @@ void pre_analysis(HeaptraceContext *ctx) {
         bp->pre_handler = breakpoint_defs[i].pre_handler;
         bp->pre_handler_nargs = breakpoint_defs[i].pre_handler_nargs;
         bp->post_handler = breakpoint_defs[i].post_handler;
+
+        // for HLM logging
+        bp->func_name = breakpoint_defs[i].name;
+        bp->ret_options = breakpoint_defs[i].ret_options;
+        //bp->arg_options = calloc(sizeof(breakpoint_defs[i].arg_options) + 1);
+        memcpy(bp->arg_options, breakpoint_defs[i].arg_options, sizeof(breakpoint_defs[i].arg_options));
+
         bps[i] = bp;
     }
     
@@ -428,7 +485,8 @@ uint map_syms(HeaptraceContext *ctx) {
     // print the type of binary etc
     ASSERT(ctx->target, "!ctx->target. Please report this.");
     if (ctx->target->is_dynamic) {
-        verbose(COLOR_RESET_BOLD "Dynamically-linked");
+        color_verbose(COLOR_RESET_BOLD);
+        verbose("Dynamically-linked");
         if (ctx->target->is_stripped) verbose(", stripped");
         verbose(" binary")
 
@@ -436,14 +494,16 @@ uint map_syms(HeaptraceContext *ctx) {
             char *ptr = get_libc_version(libc_pme->name);
             char *libc_version = ptr;
             if (!ptr) libc_version = "???";
-            verbose(" using glibc version %s (%s)\n" COLOR_RESET, libc_version, libc_pme->name);
+            verbose(" using glibc version %s (%s)\n", libc_version, libc_pme->name);
             ctx->libc_version = ptr;
         } else { verbose("\n"); }
     } else {
-        verbose(COLOR_RESET_BOLD "Statically-linked");
+        color_verbose(COLOR_RESET_BOLD);
+        verbose("Statically-linked");
         if (ctx->target->is_stripped) verbose(", stripped");
-        verbose(" binary\n" COLOR_RESET);
+        verbose(" binary\n");
     }
+    color_verbose(COLOR_RESET);
     if (OPT_VERBOSE) show_banner = 1;
 
     // now that we know the base addresses, calculate offsets
@@ -479,7 +539,9 @@ int start_process(HeaptraceContext *ctx) {
             // going to have permission to trace it. because of that. So it's 
             // going to run without our control and will likely 
             fatal("failed to enable PTRACE_TRACEME on child process (pid=%d)\n", getpid());
-            log(COLOR_WARN "hint: is another process tracing heaptrace with follow fork mode enabled? That process likely detected our exec() call to start the target process and took control.\n" COLOR_RESET);
+            color_log(COLOR_WARN);
+            log("hint: is another process tracing heaptrace with follow fork mode enabled? That process likely detected our exec() call to start the target process and took control.\n");
+            color_log(COLOR_RESET);
             KEEP_RUNNING = 0;
             abort();
         }
@@ -498,7 +560,10 @@ int start_process(HeaptraceContext *ctx) {
 
 
 void start_debugger(HeaptraceContext *ctx) {
-    log(COLOR_LOG "================================ " COLOR_LOG_BOLD "BEGIN HEAPTRACE" COLOR_LOG " ===============================\n\n" COLOR_RESET);
+    color_log(COLOR_LOG);
+
+    print_header_bars("BEGIN HEAPTRACE", 15);
+    log("\n");
 
     if (OPT_ATTACH_PID) {
         ctx->pid = OPT_ATTACH_PID;
@@ -569,7 +634,9 @@ void start_debugger(HeaptraceContext *ctx) {
             if (!fname) {
                 debug("tracee process (pid=%d) seems to have died before we got a chance to analyze it.\n", ctx->pid);
                 warn("unable to trace process; it seems to have died.\n");
-                log(COLOR_WARN "hint: are you sure you gave heaptrace the correct path to the binary file?\n" COLOR_RESET);
+                color_log(COLOR_WARN);
+                log("hint: are you sure you gave heaptrace the correct path to the binary file?\n");
+                color_log(COLOR_RESET);
                 end_debugger(ctx, 0);
             } else {
                 free(fname);
@@ -581,7 +648,7 @@ void start_debugger(HeaptraceContext *ctx) {
             // temporary solution is to uncomment the should_map_syms = !ctx->target_is_dynamic
             // see blame for this commit, or see commit after commit 2394278.
             
-            Breakpoint *bp_entry = (Breakpoint *)malloc(sizeof(struct Breakpoint));
+            Breakpoint *bp_entry = (Breakpoint *)calloc(1, sizeof(struct Breakpoint));
             bp_entry->name = "_entry";
             bp_entry->addr = ctx->target_at_entry;
             bp_entry->pre_handler = _pre_entry;
@@ -606,7 +673,8 @@ void start_debugger(HeaptraceContext *ctx) {
             PTRACE(PTRACE_GETEVENTMSG, ctx->pid, NULL, &newpid);
 
             if (OPT_FOLLOW_FORK) {
-                log_heap(COLOR_RESET COLOR_RESET_BOLD "Detected fork in process (%d->%ld). Following fork...\n", ctx->pid, newpid);
+                color_log(COLOR_RESET COLOR_RESET_BOLD);
+                log_heap("Detected fork in process (%d->%ld). Following fork...\n", ctx->pid, newpid);
                 _remove_breakpoints(ctx, BREAKPOINT_OPT_REMOVE);
                 wait(NULL);
                 PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGCONT);
@@ -642,7 +710,10 @@ void start_debugger(HeaptraceContext *ctx) {
             }
 
             if (show_banner) {
-                log(COLOR_LOG "\n================================================================================\n" COLOR_RESET);
+                color_log(COLOR_LOG);
+                print_header_bars(0, 0);
+                log("\n");
+                color_log(COLOR_RESET);
             }
 
         }

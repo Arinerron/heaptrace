@@ -13,6 +13,7 @@
 
 extern int OPT_DEBUG; // print lots of debug info?
 extern int OPT_VERBOSE;
+extern int OPT_NO_COLOR;
 
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"
@@ -30,17 +31,20 @@ extern int OPT_VERBOSE;
 
 extern FILE *output_fd;
 
-#define log(fmt, ...) { fprintf(output_fd, (fmt), ##__VA_ARGS__); } // XXX: ansi colors to file?
-#define info(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); } // XXX: ansi colors to file?
-#define debug(fmt, ...) {if (OPT_DEBUG) { fprintf(output_fd, (COLOR_RESET "[ ] " COLOR_RESET_ITALIC fmt COLOR_RESET), ##__VA_ARGS__); }}
-#define debug2(fmt, ...) {if (OPT_DEBUG) { fprintf(output_fd, (COLOR_RESET COLOR_RESET_ITALIC fmt COLOR_RESET), ##__VA_ARGS__); }}
+#define color_log(...) { if (!OPT_NO_COLOR) { fprintf(output_fd, ##__VA_ARGS__); } }
+#define color_verbose(...) { if (!OPT_NO_COLOR && OPT_VERBOSE) { fprintf(output_fd, ##__VA_ARGS__); } }
+
+#define log(fmt, ...) fprintf(output_fd, (fmt), ##__VA_ARGS__); // XXX: ansi colors to file?
+#define info(fmt, ...) { color_log(COLOR_LOG); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); } // XXX: ansi colors to file?
+#define debug(fmt, ...) {if (OPT_DEBUG) { color_log(COLOR_RESET); log("[ ] "); color_log(COLOR_RESET_ITALIC); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }}
+#define debug2(fmt, ...) {if (OPT_DEBUG) { color_log(COLOR_RESET COLOR_RESET_ITALIC); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }}
 #define verbose(fmt, ...) {if (OPT_VERBOSE) { fprintf(output_fd, (fmt), ##__VA_ARGS__); }}
-#define warn(fmt, ...) { fprintf(output_fd, (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
-#define warn2(f_, fmt, ...) { fprintf((f_), (COLOR_WARN_BOLD "heaptrace warning: " COLOR_WARN fmt COLOR_RESET), ##__VA_ARGS__); }
-#define error(fmt, ...) { fprintf(output_fd, (COLOR_ERROR "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
-#define error2(f_, fmt, ...) { fprintf((f_), (COLOR_ERROR "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
-#define fatal(fmt, ...) { fprintf(output_fd, (COLOR_ERROR_BOLD "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
-#define fatal2(f_, fmt, ...) { fprintf((f_), (COLOR_ERROR_BOLD "heaptrace error: " fmt COLOR_RESET), ##__VA_ARGS__); }
+#define warn(fmt, ...) { color_log(COLOR_WARN_BOLD); log("heaptrace warning: "); color_log(COLOR_WARN); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define warn2(f_, fmt, ...) { color_log(COLOR_WARN_BOLD); log("heaptrace warning: "); color_log(COLOR_WARN); fprintf((f_), (fmt COLOR_RESET), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define error(fmt, ...) { color_log(COLOR_ERROR); fprintf(output_fd, ("heaptrace error: " fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define error2(f_, fmt, ...) { color_log(COLOR_ERROR); fprintf((f_), ("heaptrace error: " fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define fatal(fmt, ...) { color_log(COLOR_ERROR_BOLD); fprintf(output_fd, ("heaptrace error: " fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define fatal2(f_, fmt, ...) { color_log(COLOR_ERROR_BOLD); fprintf((f_), ("heaptrace error: " fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
 
 #define U64T "0x%" PRIx64
 
@@ -55,12 +59,62 @@ extern FILE *output_fd;
 #define PTR_IT COLOR_LOG_ITALIC U64T COLOR_LOG
 #define PTR_ARG(ptr) ((long unsigned int)(ptr))
 
-#define log_heap(fmt, ...) { fprintf(output_fd, (COLOR_LOG fmt COLOR_RESET), ##__VA_ARGS__); }
-#define verbose_heap(fmt, ...) { if (OPT_VERBOSE) { fprintf(output_fd, (COLOR_LOG "\t^-- " COLOR_LOG_ITALIC fmt COLOR_RESET "\n"), ##__VA_ARGS__); } }
-#define fatal_heap(msg, ...) log(COLOR_ERROR_BOLD "heaptrace error: " COLOR_ERROR msg COLOR_RESET "\n", ##__VA_ARGS__)
+#define log_heap(fmt, ...) { color_log(COLOR_LOG); fprintf(output_fd, (fmt), ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define verbose_heap(fmt, ...) { if (OPT_VERBOSE) { color_log(COLOR_LOG); log("\t^-- "); color_log(COLOR_LOG_ITALIC); fprintf(output_fd, (fmt "\n"), ##__VA_ARGS__);  color_log(COLOR_RESET); } }
+#define fatal_heap(msg, ...) { color_log(COLOR_ERROR_BOLD); log("\nheaptrace error: "); color_log(COLOR_ERROR); log(msg "\n", ##__VA_ARGS__); color_log(COLOR_RESET); }
 //#define warn2(msg) log("%sheaptrace warning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR, (msg), COLOR_RESET) 
-#define warn_heap(msg, ...) log(COLOR_WARN "    |-- warning: " COLOR_WARN_BOLD msg COLOR_RESET "\n", ##__VA_ARGS__)
-#define warn_heap2(msg, ...) log(COLOR_WARN "    |   * " msg "\n" COLOR_RESET,  ##__VA_ARGS__)
+#define warn_heap(msg, ...) { color_log(COLOR_WARN); ctx->hlm.cur_width = 0; log("\n    |-- warning: "); color_log(COLOR_WARN_BOLD); log(msg "\n", ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define warn_heap2(msg, ...) { color_log(COLOR_WARN); log("    |   * " msg "\n",  ##__VA_ARGS__); color_log(COLOR_RESET); }
 
 void describe_symbol(void *ptr);
 
+#ifndef LOGGING_H
+#define LOGGING_H
+
+typedef struct HeaptraceContext HeaptraceContext;
+
+typedef struct HandlerLogMessageNote {
+    char *ptr;
+    size_t cur_width;
+    uint64_t cur_width_color;
+
+    struct HandlerLogMessageNote *next;
+} HandlerLogMessageNote;
+
+// TODO: #53: finish this
+#define HLM_OPTION_SYMBOL 2 // falls back to address
+#define HLM_OPTION_ADDRESS 4
+#define HLM_OPTION_SIZE 8
+
+#define HLM_WARNINGS_SIZE 4096
+typedef struct HandlerLogMessage {
+    // handler variables
+
+    char *func_name;
+    char *warnings; // malloced and zero'd every operation
+
+    uint arg_options[3];
+    uint64_t arg_ptr[3];
+
+    uint ret_options;
+    uint64_t ret_ptr;
+
+    // msgs
+    HandlerLogMessageNote *notes_head;
+
+    // debugger variables
+
+    uint64_t cur_width;
+} HandlerLogMessage;
+
+void reset_handler_log_message(HeaptraceContext *ctx);
+void print_handler_log_message_1(HeaptraceContext *ctx);
+void print_handler_log_message_2(HeaptraceContext *ctx);
+
+HandlerLogMessageNote *insert_note(HeaptraceContext *ctx);
+void concat_note(HandlerLogMessageNote *note, const char *fmt, ...);
+void concat_note_color(HandlerLogMessageNote *note, const char *fmt, ...);
+
+void print_header_bars(char *msg, size_t msg_sz);
+
+#endif

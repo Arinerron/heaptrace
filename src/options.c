@@ -149,6 +149,10 @@ int parse_args(int argc, char *argv[]) {
     bool isCaseInsensitive = false;
     int opt;
 
+    if (getenv("NO_COLOR")) {
+        OPT_NO_COLOR = 1;
+    }
+
     extern char **environ;
     while ((opt = getopt_long(argc, argv, "+hvFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
         switch (opt) {
@@ -223,6 +227,7 @@ int parse_args(int argc, char *argv[]) {
                     show_help(argv);
                 } else {
                     output_fd = _output_file;
+                    OPT_NO_COLOR = 1;
                 }
                 break;
             }
