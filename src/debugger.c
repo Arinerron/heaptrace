@@ -303,8 +303,9 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     uint _was_sigsegv = 0;
     uint _show_newline = 0;
     color_log(COLOR_LOG);
-    print_header_bars(0, 0);
+
     log("\n");
+    print_header_bars("END HEAPTRACE", 13);
 
     if (ctx->status16 == PTRACE_EVENT_EXEC) {
         color_log(COLOR_ERROR);
@@ -360,8 +361,6 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
     } else {
         kill(ctx->pid, SIGINT);
     }
-
-    print_header_bars("END HEAPTRACE", 13);
 
     free_ctx(ctx);
     free_user_breakpoints();
@@ -563,7 +562,6 @@ void start_debugger(HeaptraceContext *ctx) {
     color_log(COLOR_LOG);
 
     print_header_bars("BEGIN HEAPTRACE", 15);
-    log("\n");
 
     if (OPT_ATTACH_PID) {
         ctx->pid = OPT_ATTACH_PID;
@@ -712,9 +710,9 @@ void start_debugger(HeaptraceContext *ctx) {
             if (show_banner) {
                 color_log(COLOR_LOG);
                 print_header_bars(0, 0);
-                log("\n");
                 color_log(COLOR_RESET);
             }
+            log("\n");
 
         }
 

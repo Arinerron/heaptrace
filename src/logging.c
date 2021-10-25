@@ -44,10 +44,10 @@ void print_header_bars(char *msg, size_t msg_sz) {
         size_t num_equals = (TERM_WIDTH - (2 + msg_sz - 1)) / 2;
 
         char *rc = repeat_char(num_equals, '=');
-        log("\n%s %s %s\n", rc, msg, rc);
+        log("%s %s %s\n", rc, msg, rc);
     } else {
         char *rc = repeat_char(TERM_WIDTH, '=');
-        log("\n%s\n", rc);
+        log("%s\n", rc);
     }
     color_log(COLOR_RESET);
 }
