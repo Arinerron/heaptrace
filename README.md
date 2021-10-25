@@ -5,9 +5,9 @@ heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86\_6
 ![screenshot.png](screenshot.png)
 
 * replaces addresses with easy-to-understand symbols
-* detects some forms of heap corruption and memory leakage issues
-* allows users to debug in gdb at any heap operation (`--break`)
-* works on all ELF64 (x86\_64) binaries regardless of ASLR or compiler settings (including stripped binaries)
+* detects heap corruption and memory leakage issues
+* can debug gdb at any point ([`--break`](https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints))
+* supports all ELF64 (x86\_64) binaries regardless of ASLR or compiler settings ([including stripped binaries](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary))
 
 # Installation
 ## Official Releases
@@ -38,16 +38,40 @@ You can specify arguments to heaptrace before specifying the binary name:
 
 ```
 Usage:
-  heaptrace [options...] <target> [args...]
-  heaptrace [options...] --attach <pid>
+  ./heaptrace [options...] <target> [args...]
+  ./heaptrace [options...] --attach <pid>
 
 Options:
+  -p <pid>, --attach <pid>, --pid <pid>
+	 Tells heaptrace to attach to the specified pid 
+	 instead of running the binary from the `target` 
+	 argument. Note that if you specify this argument 
+	 you do not have to specify `target`.
+
+
+  -b <expression>, --break=<expression>, --break-at=<expression>
+	 Send SIGSTOP to the process when the specified 
+	 `expression` is satisfied and attach the GNU debugger 
+	 (gdb) to the process.
+
+	 This argument supports complex expressions. Please 
+	 See the documentation for more information: 
+	 https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints
+
+
+  -B <expression>, --break-after=<expression>
+	 Similar to `--break`. Replaces the tracer 
+	 process with gdb, but only after the heap function 
+	 returns. See the documentation for more information: 
+	 https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints
+
+
   -e <name=value>, --environ=<name=value>, --environment=<name=value>
 	 Sets a single environmental variable. Useful for 
 	 setting runtime settings for the target such as 
 	 LD_PRELOAD=./libc.so.6 without having them affect 
-	 heaptrace's runtime configuration.
-
+	 heaptrace's runtime configuration. This option can 
+	 be used multiple times.
 
   -s <sym_defs>, --symbols=<sym_defs>
 	 Override the values heaptrace detects for the 
@@ -55,25 +79,6 @@ Options:
 	 Useful if heaptrace fails to automatically 
 	 identify heap functions in a stripped binary. See 
 	 the wiki for more info.
-
-
-  -b <number>, --break=<number>, --break-at=<number>
-	 Send SIGSTOP to the process at heap operation 
-	 specified in `number` (before executing the heap 
-	 function) and attach the GNU debugger (gdb) to the 
-	 process.
-
-	 Also supports "segfault" in the `number` arg to 
-	 launch gdb if the process exits abnormally 
-	 (SIGSEGV, abort(), etc). And, "main" will break at 
-	 the entry point to the binary (the process' 
-	 AT_ENTRY auxiliary vector value).
-
-
-  -B <number>, --break-after=<number>
-	 Similar to `--break`. Replaces the tracer 
-	 process with gdb, but only after the heap function 
-	 returns.
 
 
   -F, --follow-fork, --follow
@@ -88,13 +93,6 @@ Options:
   -G <path>, --gdb-path <path>
 	 Tells heaptrace to use the path to gdb specified 
 	 in `path` instead of /usr/bin/gdb (default).
-
-
-  -p <pid>, --attach <pid>, --pid <pid>
-	 Tells heaptrace to attach to the specified pid 
-	 instead of running the binary from the `target` 
-	 argument. Note that if you specify this argument 
-	 you do not have to specify `target`.
 
 
   -o <file>, --output=<file>
@@ -113,13 +111,9 @@ Options:
 
 ```
 
-For example, if you wanted to automatically attach gdb at operation #3, you would execute:
-
-```
-$ heaptrace --break=3 ./my-binary
-```
-
-See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries that heaptrace failed to automatically identify functions in.
+* For example, if you wanted to automatically attach gdb at operation #3, you would execute `heaptrace --break=3 ./my-binary`. Please see the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints) for more information on how to use this argument.
+* See the [wiki documentation](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary) for more information on how to use the `-s`/`--symbol` argument to debug stripped binaries that heaptrace failed to automatically identify functions in.
+* Set the `$NO_COLOR` argument to remove ANSI color codes from output. This option is still in development and will be converted into an argument soon.
 
 # Support
 
