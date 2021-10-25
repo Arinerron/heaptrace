@@ -176,8 +176,10 @@ void concat_note_color(HandlerLogMessageNote *note, const char *fmt, ...) {
 
 
 inline static size_t calc_spaces_for_right_align(size_t cur_width, size_t text_sz) {
-    if (text_sz >= TERM_WIDTH) return 0; // nothing we can do if it's too long
-    else if (cur_width + text_sz >= TERM_WIDTH) {
+    if (text_sz >= TERM_WIDTH) { return 0; // nothing we can do if it's too long
+    } else if (cur_width + text_sz >= TERM_WIDTH * 2) {
+        return 0;
+    } else if (cur_width + text_sz > TERM_WIDTH && cur_width + text_sz < TERM_WIDTH * 2) {
         return TERM_WIDTH - cur_width + TERM_WIDTH - text_sz; // if overflow, newline worth of spaces THEN right align
     } else {
         return TERM_WIDTH - (cur_width + text_sz);
@@ -204,7 +206,7 @@ void print_handler_log_message_2(HeaptraceContext *ctx) {
         cur_width += log("%s= ", repeat_char(calc_spaces_for_position(cur_width, (_mult * TERM_WIDTH) / 12), ' '));
         
         color_log(COLOR_LOG_BOLD);
-        cur_width += log("%p", ctx->hlm.ret_ptr);
+        cur_width += log("%p ", ctx->hlm.ret_ptr);
         color_log(COLOR_LOG);
     }
 
