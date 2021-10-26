@@ -176,20 +176,28 @@ void concat_note_color(HandlerLogMessageNote *note, const char *fmt, ...) {
 
 
 inline static size_t calc_spaces_for_right_align(size_t cur_width, size_t text_sz) {
-    if (text_sz >= TERM_WIDTH) { return 0; // nothing we can do if it's too long
-    } else if (cur_width + text_sz >= TERM_WIDTH * 2) {
+    size_t max_width = TERM_WIDTH;
+    if (max_width > 200) {
+        max_width = (max_width * 2) / 3;
+    }
+
+    if (text_sz >= max_width) {
+        return 0; // nothing we can do if it's too long
+    } else if (cur_width + text_sz >= max_width * 2) {
         return 0;
-    } else if (cur_width + text_sz > TERM_WIDTH && cur_width + text_sz < TERM_WIDTH * 2) {
-        return TERM_WIDTH - cur_width + TERM_WIDTH - text_sz; // if overflow, newline worth of spaces THEN right align
+    } else if (cur_width + text_sz > max_width && cur_width + text_sz < max_width * 2) {
+        return max_width - cur_width + max_width - text_sz; // if overflow, newline worth of spaces THEN right align
     } else {
-        return TERM_WIDTH - (cur_width + text_sz);
+        return max_width - (cur_width + text_sz);
     }
 }
 
 
 inline static size_t calc_spaces_for_position(size_t cur_width, size_t pos) {
-    if (cur_width > pos) return TERM_WIDTH - cur_width + pos;
-    else return pos - cur_width;
+    if (cur_width > pos) {
+        if (cur_width > TERM_WIDTH) return 0;
+        return TERM_WIDTH - cur_width + pos;
+    } else return pos - cur_width;
 }
 
 
