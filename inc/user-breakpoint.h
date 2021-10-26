@@ -43,8 +43,7 @@ typedef struct UserBreakpoint {
     uint64_t address_eval; // once the `address` field gets evaluated
 
     // next &&/AND instruction
-    // struct UserBreakpoint *next_requirement;
-    // XXX: AND not supported yet
+    struct UserBreakpoint *next_requirement;
 
     // next ||/OR instruction
     struct UserBreakpoint *next;

@@ -16,7 +16,7 @@ static UserBreakpointToken *_create_token(char *s, size_t s_sz, UBPTType type, s
     token->value = calloc(1, s_sz + 2);
     strncpy(token->value, s, s_sz);
     token->i = i;
-    //printf("... adding token \"%s\" of type=%d\n", token->value, token->type);
+    debug("... adding token \"%s\" of type=%d\n", token->value, token->type);
     return token;
 }
 
@@ -45,7 +45,7 @@ UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint) {
         char c = *s;
 
         if (!in_token) {
-            if (c == ' ' || c == '\t' || c == '\n') {
+            if (c == ' ' || c == '\t' || c == '\n' || c == '#') {
                 // skip whitespace
                 continue;
             } else {
@@ -55,8 +55,15 @@ UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint) {
             }
         }
 
-        if (start_ptr != s) { // if in the middle of a token
-            if (c == ':' || c == '+' || c == '-' || c == '=' || c == '\0' || c == ' ' || c == '\t' || c == '\n') {
+        uint in_punctuator = 0;
+        if (c == ':' || c == '+' || c == '-' || c == '=' || c == ',' || c == ';') {
+            in_punctuator = 1;
+        } else if ((c == '&' && *(s + 1) == '&') || (c == '|' && *(s + 1) == '|')) {
+            in_punctuator = 2;
+        }
+
+        if (start_ptr != s) { // if in the middle of a token    
+            if (in_punctuator || c == '\0' || c == ' ' || c == '\t' || c == '\n') {
                 next_token = _create_token(start_ptr, s - start_ptr, UBPT_TYPE_IDENTIFIER, i - (s - start_ptr));
                 if (!token_head) token_head = next_token;
                 if (cur_token) cur_token->next = next_token;
@@ -66,11 +73,13 @@ UserBreakpointToken *tokenize_user_breakpoint_str(char *breakpoint) {
             }
         }
 
-        if (c == ':' || c == '+' || c == '-' || c == '=') {
-            next_token = _create_token(start_ptr, 1, UBPT_TYPE_PUNCTUATOR, i - (s - start_ptr));
+        if (in_punctuator) {
+            next_token = _create_token(start_ptr, in_punctuator, UBPT_TYPE_PUNCTUATOR, i - (s - start_ptr));
             if (!token_head) token_head = cur_token;
             if (cur_token) cur_token->next = next_token;
             cur_token = next_token;
+            i += (in_punctuator - 1);
+            s += (in_punctuator - 1);
             in_token = 0;
         }
     }
@@ -157,41 +166,58 @@ static UserBreakpointToken *_parse_token_expression(UserBreakpoint *ubp, UserBre
 }
 
 
-UserBreakpoint *create_user_breakpoint(char *name) {
-    UserBreakpointToken *token_head = tokenize_user_breakpoint_str(name);
+UserBreakpoint *_parse_token_list(char *name, UserBreakpointToken **_cur_token) {
+    UserBreakpointToken *cur_token = *_cur_token;
+    if (!cur_token) return 0;
+
     UserBreakpoint *ubp = (UserBreakpoint *)calloc(1, sizeof(UserBreakpoint));
-    ubp->name = strdup(name);
+    ubp->name = strdup(name + cur_token->i);
     ubp->when = UBP_WHEN_BEFORE;
     ubp->count = 1;
     
-    UserBreakpointToken *cur_token = token_head;
     enum action {ACTION_WHAT, ACTION_ADDRESS, ACTION_COUNT} cur_action = ACTION_WHAT;
     while (cur_token) {
         if (cur_action == ACTION_WHAT) {
-            EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "expected an identifier");
-            if (!strcmp(cur_token->value, "address") || !strcmp(cur_token->value, "addr")) {
-                ubp->what = UBP_WHAT_ADDRESS;
-                cur_action = ACTION_ADDRESS;
-                GET();
-                EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
-            } else if (!strcmp(cur_token->value, "oid") || !strcmp(cur_token->value, "operation") || !strcmp(cur_token->value, "number") || is_uint(cur_token->value)) {
-                ubp->what = UBP_WHAT_OID;
-                if (!is_uint(cur_token->value)) {
-                    GET();
-                    EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
-                    GET();
-                    EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "unexpected token type; expecting an identifier");
-                }
-                ubp->oid = (size_t)str_to_uint64(cur_token->value);
-                if (!(ubp->oid)) warn("heaptrace operation IDs (oid) are indexed starting at 1, but user breakpoint is set to oid=0\n");
-            } else if (!strcmp(cur_token->value, "segfault") || !strcmp(cur_token->value, "sigsegv") || !strcmp(cur_token->value, "segv")) {
-                ubp->what = UBP_WHAT_SEGFAULT;
+            if ((cur_token->type == UBPT_TYPE_PUNCTUATOR && (!strcmp(cur_token->value, "||") || !strcmp(cur_token->value, ";") || !strcmp(cur_token->value, ","))) || !strcmp(cur_token->value, "or") || !strcmp(cur_token->value, "OR")) {
+                *(ubp->name + cur_token->i) = '\x00';
+                GET()
+                EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "expected an identifier");
+                UserBreakpoint *next_ubp = _parse_token_list(name, &cur_token);
+                ubp->next = next_ubp;
                 break;
-            } else if (!strcmp(cur_token->value, "main") || !strcmp(cur_token->value, "entry") || !strcmp(cur_token->value, "start") || !strcmp(cur_token->value, "_entry")) {
-                ubp->what = UBP_WHAT_ENTRY;
+            } else if ((cur_token->type == UBPT_TYPE_PUNCTUATOR && (!strcmp(cur_token->value, "&&"))) || !strcmp(cur_token->value, "and") || !strcmp(cur_token->value, "AND")) {
+                *(ubp->name + cur_token->i) = '\x00';
+                GET()
+                EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "expected an identifier");
+                UserBreakpoint *next_ubp = _parse_token_list(name, &cur_token);
+                ubp->next_requirement = next_ubp;
                 break;
             } else {
-                EXPECT(0, "unknown 'what': please choose one of [oid, address, segfault, entry]");
+                EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "expected an identifier");
+                if (!strcmp(cur_token->value, "address") || !strcmp(cur_token->value, "addr")) {
+                    ubp->what = UBP_WHAT_ADDRESS;
+                    cur_action = ACTION_ADDRESS;
+                    GET();
+                    EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
+                } else if (!strcmp(cur_token->value, "oid") || !strcmp(cur_token->value, "operation") || !strcmp(cur_token->value, "number") || is_uint(cur_token->value)) {
+                    ubp->what = UBP_WHAT_OID;
+                    if (!is_uint(cur_token->value)) {
+                        GET();
+                        EXPECT(cur_token->type == UBPT_TYPE_PUNCTUATOR && !strcmp(cur_token->value, "="), "unexpected token");
+                        GET();
+                        EXPECT(cur_token->type == UBPT_TYPE_IDENTIFIER, "unexpected token type; expecting an identifier");
+                    }
+                    ubp->oid = (size_t)str_to_uint64(cur_token->value);
+                    if (!(ubp->oid)) warn("heaptrace operation IDs (oid) are indexed starting at 1, but user breakpoint is set to oid=0\n");
+                } else if (!strcmp(cur_token->value, "segfault") || !strcmp(cur_token->value, "sigsegv") || !strcmp(cur_token->value, "segv") || !strcmp(cur_token->value, "abort")) {
+                    ubp->what = UBP_WHAT_SEGFAULT;
+                    break;
+                } else if (!strcmp(cur_token->value, "main") || !strcmp(cur_token->value, "entry") || !strcmp(cur_token->value, "start") || !strcmp(cur_token->value, "_entry")) {
+                    ubp->what = UBP_WHAT_ENTRY;
+                    break;
+                } else {
+                    EXPECT(0, "unknown 'what': please choose one of [oid, address, segfault/sigsegv/segv/abort, entry/main/start/_entry]");
+                }
             }
         } else if (cur_action == ACTION_ADDRESS) {
             cur_token = _parse_token_expression(ubp, cur_token);
@@ -214,6 +240,15 @@ expect_address:;
         continue;
     }
 
+    *_cur_token = cur_token;
+    return ubp;
+}
+
+
+UserBreakpoint *create_user_breakpoint(char *name) {
+    UserBreakpointToken *token_head = tokenize_user_breakpoint_str(name);
+    UserBreakpointToken *cur_token = token_head;
+    UserBreakpoint *ubp = _parse_token_list(name, &cur_token);
     _free_token_list(token_head);
     return ubp;
 }
@@ -328,6 +363,65 @@ void install_user_breakpoints(HeaptraceContext *ctx) {
 }
 
 
+static void _fill_symbol_references(HeaptraceContext *ctx, ProcMapsEntry *bin_pme, ProcMapsEntry *libc_pme, UserBreakpoint *cur_ubp) {
+    UserBreakpointAddress *cur_ubpa = cur_ubp->address;
+    while (cur_ubpa) {
+        if (cur_ubpa->symbol_name) {
+            if (!_is_reference_constant(cur_ubpa->symbol_name)) {
+                uint resolved = 0;
+                SymbolEntry *cur_se = ctx->target->se_head;
+                while (cur_se) {
+                    if (!strcmp(cur_ubpa->symbol_name, cur_se->name)) {
+                        // found the symbol!
+                        cur_ubpa->symbol_name = 0;
+                        if (cur_se->type == SE_TYPE_UNRESOLVED) {
+                            log("\n");
+                            fatal("failed to resolve symbol \"%s\" referenced in user breakpoint \"%s\".\n", cur_se->name, cur_ubp->name);
+                            end_debugger(ctx, 0);
+                        } else if (cur_se->type != SE_TYPE_STATIC) {
+                            log("\n");
+                            fatal("user breakpoint \"%s\" references symbol %s which is a dynamic symbol. Only static symbols are currently supported. You may use the `libc` variable to reference the glibc base address instead.\n", cur_ubp->name, cur_se->name);
+                            end_debugger(ctx, 0);
+                        } else {
+                            cur_ubpa->address = bin_pme->base + cur_se->offset;
+                            if (ctx->target->is_dynamic) cur_ubpa->address += cur_se->_sub_offset;
+                        }
+                        resolved = 1;
+                        break;
+                    }
+                    cur_se = cur_se->_next;
+                }
+
+                if (!resolved) {
+                    warn("user breakpoint \"%s\" references %s but the symbol could not be resolved. Will assume symbol %s=0x0\n", cur_ubp->name, cur_ubpa->symbol_name, cur_ubpa->symbol_name);
+                    cur_ubpa->symbol_name = 0;
+                    cur_ubpa->address = 0;
+                }
+            } else {
+                if (!strcmp(cur_ubpa->symbol_name, "libc")) {
+                    if (!(ctx->target->is_dynamic)) {
+                        warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
+                    } else {
+                        ASSERT(!!libc_pme, "failed to find glibc /proc/pid/maps entry for breakpoint \"%s\"", cur_ubp->name)
+                        cur_ubpa->symbol_name = 0;
+                        cur_ubpa->address = libc_pme->base;
+                    }
+                } else if (!strcmp(cur_ubpa->symbol_name, "bin") || !strcmp(cur_ubpa->symbol_name, "binary") || !strcmp(cur_ubpa->symbol_name, "target")) {
+                    cur_ubpa->symbol_name = 0;
+                    cur_ubpa->address = bin_pme->base;
+                }
+            }
+        }
+        cur_ubpa = cur_ubpa->next_operation;
+    }
+
+    // now, evaluate it
+    if (cur_ubp->address) {
+        cur_ubp->address_eval = _evaluate_user_breakpoint_address(cur_ubp);
+    }
+}
+
+
 void fill_symbol_references(HeaptraceContext *ctx) {
     ProcMapsEntry *bin_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_BINARY);
     ProcMapsEntry *libc_pme = pme_walk(ctx->pme_head, PROCELF_TYPE_LIBC);
@@ -335,60 +429,10 @@ void fill_symbol_references(HeaptraceContext *ctx) {
 
     UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
-        UserBreakpointAddress *cur_ubpa = cur_ubp->address;
-        while (cur_ubpa) {
-            if (cur_ubpa->symbol_name) {
-                if (!_is_reference_constant(cur_ubpa->symbol_name)) {
-                    uint resolved = 0;
-                    SymbolEntry *cur_se = ctx->target->se_head;
-                    while (cur_se) {
-                        if (!strcmp(cur_ubpa->symbol_name, cur_se->name)) {
-                            // found the symbol!
-                            cur_ubpa->symbol_name = 0;
-                            if (cur_se->type == SE_TYPE_UNRESOLVED) {
-                                log("\n");
-                                fatal("failed to resolve symbol \"%s\" referenced in user breakpoint \"%s\".\n", cur_se->name, cur_ubp->name);
-                                end_debugger(ctx, 0);
-                            } else if (cur_se->type != SE_TYPE_STATIC) {
-                                log("\n");
-                                fatal("user breakpoint \"%s\" references symbol %s which is a dynamic symbol. Only static symbols are currently supported. You may use the `libc` variable to reference the glibc base address instead.\n", cur_ubp->name, cur_se->name);
-                                end_debugger(ctx, 0);
-                            } else {
-                                cur_ubpa->address = bin_pme->base + cur_se->offset;
-                                if (ctx->target->is_dynamic) cur_ubpa->address += cur_se->_sub_offset;
-                            }
-                            resolved = 1;
-                            break;
-                        }
-                        cur_se = cur_se->_next;
-                    }
-
-                    if (!resolved) {
-                        warn("user breakpoint \"%s\" references %s but the symbol could not be resolved. Will assume symbol %s=0x0\n", cur_ubp->name, cur_ubpa->symbol_name, cur_ubpa->symbol_name);
-                        cur_ubpa->symbol_name = 0;
-                        cur_ubpa->address = 0;
-                    }
-                } else {
-                    if (!strcmp(cur_ubpa->symbol_name, "libc")) {
-                        if (!(ctx->target->is_dynamic)) {
-                            warn("user breakpoint \"%s\" references %s but target binary is statically linked\n", cur_ubp->name, cur_ubpa->symbol_name);
-                        } else {
-                            ASSERT(!!libc_pme, "failed to find glibc /proc/pid/maps entry for breakpoint \"%s\"", cur_ubp->name)
-                            cur_ubpa->symbol_name = 0;
-                            cur_ubpa->address = libc_pme->base;
-                        }
-                    } else if (!strcmp(cur_ubpa->symbol_name, "bin") || !strcmp(cur_ubpa->symbol_name, "binary") || !strcmp(cur_ubpa->symbol_name, "target")) {
-                        cur_ubpa->symbol_name = 0;
-                        cur_ubpa->address = bin_pme->base;
-                    }
-                }
-            }
-            cur_ubpa = cur_ubpa->next_operation;
-        }
-
-        // now, evaluate it
-        if (cur_ubp->address) {
-            cur_ubp->address_eval = _evaluate_user_breakpoint_address(cur_ubp);
+        UserBreakpoint *cur_ubp_nr = cur_ubp;
+        while (cur_ubp_nr) {
+            _fill_symbol_references(ctx, bin_pme, libc_pme, cur_ubp_nr);
+            cur_ubp_nr = cur_ubp_nr->next_requirement;
         }
         cur_ubp = cur_ubp->next;
     }
@@ -412,7 +456,7 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
     } else if (ubp->what == UBP_WHAT_SEGFAULT) return ctx->h_state == PROCESS_STATE_SEGFAULT;
     else if (ubp->what == UBP_WHAT_ENTRY) return ctx->h_state == PROCESS_STATE_ENTRY;
     else {
-        if (UBP_WHEN_CUSTOM_BP != ctx->h_when) return 0;
+        if (UBP_WHEN_CUSTOM_BP == ctx->h_when) return 0;
         return ubp->address_eval && ubp->address_eval == ctx->h_rip - 1;
     }
     return 0;
@@ -422,23 +466,32 @@ static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint
 void check_should_break(HeaptraceContext *ctx) {
     UserBreakpoint *cur_ubp = USER_BREAKPOINT_HEAD;
     while (cur_ubp) {
-        if (_check_breakpoint_logic(ctx, cur_ubp)) {
-            debug("user breakpoint \"%s\" evaluated to true. rip=%p, h_when=%d, i/count=%d/%d\n", cur_ubp->name, ctx->h_rip, ctx->h_when, cur_ubp->h_i + 1, cur_ubp->count);
-            if (++(cur_ubp->h_i) >= cur_ubp->count) {
-                // ok, we've hit this breakpoint enough to call gdb!
-                log(COLOR_ERROR "\n    [   PROCESS PAUSED   ]\n");
-                log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "%s -p %d\n" COLOR_RESET, OPT_GDB_PATH, ctx->pid);
-
-                // launch gdb
-                _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL); // TODO/XXX: use end_debugger
-                PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGSTOP);
-
-                char buf[10+1];
-                snprintf(buf, 10, "%u", ctx->pid);
-                char *args[] = {OPT_GDB_PATH, "-p", buf, NULL};
-                if (execv(args[0], args) == -1) {
-                    ASSERT(0, "failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
+        UserBreakpoint *cur_ubp_nr = cur_ubp; // next requirements list
+        uint should_break = !!cur_ubp_nr;
+        while (cur_ubp_nr) {
+            if (_check_breakpoint_logic(ctx, cur_ubp_nr)) {
+                debug("user breakpoint \"%s\" evaluated to true. rip=%p, h_when=%d, i/count=%d/%d\n", cur_ubp_nr->name, ctx->h_rip, ctx->h_when, cur_ubp_nr->h_i + 1, cur_ubp_nr->count);
+                if (!(++(cur_ubp_nr->h_i) >= cur_ubp_nr->count)) {
+                    should_break = 0;
                 }
+            } else should_break = 0;
+            cur_ubp_nr = cur_ubp_nr->next_requirement;
+        }
+        
+        if (should_break) {
+            // ok, we've hit this breakpoint enough to call gdb!
+            log(COLOR_ERROR "\n    [   PROCESS PAUSED   ]\n");
+            log(COLOR_ERROR "    |   * attaching GDB via: " COLOR_ERROR_BOLD "%s -p %d\n" COLOR_RESET, OPT_GDB_PATH, ctx->pid);
+
+            // launch gdb
+            _remove_breakpoints(ctx, BREAKPOINT_OPTS_ALL); // TODO/XXX: use end_debugger
+            PTRACE(PTRACE_DETACH, ctx->pid, NULL, SIGSTOP);
+
+            char buf[10+1];
+            snprintf(buf, 10, "%u", ctx->pid);
+            char *args[] = {OPT_GDB_PATH, "-p", buf, NULL};
+            if (execv(args[0], args) == -1) {
+                ASSERT(0, "failed to execute debugger %s: %s (errno %d)", args[0], strerror(errno), errno);
             }
         }
         cur_ubp = cur_ubp->next;
