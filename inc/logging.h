@@ -14,6 +14,7 @@
 extern int OPT_DEBUG; // print lots of debug info?
 extern int OPT_VERBOSE;
 extern int OPT_NO_COLOR;
+extern size_t OPT_TERM_WIDTH;
 
 #define COLOR_LOG "\e[0;36m"
 #define COLOR_LOG_BOLD "\e[1;36m"

@@ -9,6 +9,7 @@ FILE *output_fd;
 int OPT_DEBUG = 0;
 int OPT_VERBOSE = 0;
 int OPT_NO_COLOR = 0;
+size_t OPT_TERM_WIDTH = 0;
 
 #define MIN_TERM_WIDTH 40
 static size_t TERM_WIDTH = MIN_TERM_WIDTH;
@@ -17,6 +18,11 @@ static char *spaces_ptr = 0;
 
 
 static inline void update_terminal_width() {
+    if (OPT_TERM_WIDTH) {
+        TERM_WIDTH = OPT_TERM_WIDTH;
+        return;
+    }
+
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     size_t max_width = w.ws_col;

@@ -44,6 +44,9 @@ static struct option long_options[] = {
 
     {"gdb-path", no_argument, NULL, 'G'},
 
+    {"width", required_argument, NULL, 'w'},
+    {"term-width", required_argument, NULL, 'w'},
+
     {"output", required_argument, NULL, 'o'},
     {"out", required_argument, NULL, 'o'},
 
@@ -117,9 +120,14 @@ static void show_help(char *argv[]) {
         "\n"
         "\n"
 
-        PND "-G <path>, --gdb-path <path>\n"
+        PND "-G <path>, --gdb-path=<path>\n"
         IND "Tells heaptrace to use the path to gdb specified \n"
         IND "in `path` instead of /usr/bin/gdb (default).\n"
+        "\n"
+        "\n"
+
+        PND "-w <width>, --width=<width>, --term-width=<width>\n"
+        IND "Force a certain terminal width.\n"
         "\n"
         "\n"
 
@@ -153,7 +161,7 @@ int parse_args(int argc, char *argv[]) {
     }
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "+hvFDe:s:b:B:G:p:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "+hvFDe:s:b:B:G:p:w:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'h': {
                 show_help(argv);
@@ -216,6 +224,12 @@ int parse_args(int argc, char *argv[]) {
             case 'p': {
                 char *endp;
                 OPT_ATTACH_PID = strtoul(optarg, &endp, 10);
+                break;
+            }
+
+            case 'w': {
+                char *endp;
+                OPT_TERM_WIDTH = strtoul(optarg, &endp, 10);
                 break;
             }
 
