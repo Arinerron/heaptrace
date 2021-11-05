@@ -34,7 +34,7 @@ static inline void update_terminal_width() {
 
 static char *repeat_char(size_t num, char c) {
     spaces_ptr = realloc(spaces_ptr, num + 2);
-    ASSERT(spaces_ptr, "Failed to realloc spaces_ptr. num=%lu, TERM_WIDTH=%d. Please report this.", num, TERM_WIDTH);
+    ASSERT(spaces_ptr, "Failed to realloc spaces_ptr. num=lu=%lu (ld=%ld), TERM_WIDTH=%d. Please report this.", num, num, TERM_WIDTH);
     memset(spaces_ptr, c, num);
     spaces_ptr[num] = 0;
 
@@ -46,7 +46,7 @@ void print_header_bars(char *msg, size_t msg_sz) {
     update_terminal_width();
 
     color_log(COLOR_LOG);
-    if (msg && msg_sz) {
+    if (msg && msg_sz && !(2 + msg_sz > TERM_WIDTH)) {
         size_t num_equals = (TERM_WIDTH - (2 + msg_sz)) / 2;
         char *rc = repeat_char(num_equals, '=');
         if (log("%s %s %s", rc, msg, rc) == TERM_WIDTH - 1) log("=");

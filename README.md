@@ -95,6 +95,10 @@ Options:
 	 in `path` instead of /usr/bin/gdb (default).
 
 
+  -w <width>, --width=<width>, --term-width=<width>
+	 Force a certain terminal width.
+
+
   -o <file>, --output=<file>
 	 Write the heaptrace output to `file` instead of 
 	 /dev/stderr (which is the default output path).
