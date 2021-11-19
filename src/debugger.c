@@ -318,7 +318,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         log(".");
         color_log(COLOR_RESET);
         log(" ");
-    } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
+    } else if ((ctx->status == STATUS_SIGSEGV) || ctx->status == 1919 || ctx->status == 1151 || ctx->status == 0x67f || (WIFSIGNALED(ctx->status) && !WIFEXITED(ctx->status))) { // some other abnormal code
         // XXX: this code checks if the whole `status` int == smth. We prob only want ctx->status16
         color_log(COLOR_ERROR);
         log("Process exited with signal ");
@@ -655,7 +655,7 @@ void start_debugger(HeaptraceContext *ctx) {
             ctx->bp_entry = bp_entry;
         }
 
-        if (WIFEXITED(ctx->status) || WIFSIGNALED(ctx->status) || ctx->status == STATUS_SIGSEGV || ctx->status == 0x67f) {
+        if (WIFEXITED(ctx->status) || WIFSIGNALED(ctx->status) || ctx->status == STATUS_SIGSEGV || ctx->status == 0x67f || ctx->status == 1151 || ctx->status == 1919) {
             debug("received an exit status, goodbye!\n");
             end_debugger(ctx, 0);
         } else if (ctx->status == 0x57f) { /* status SIGTRAP */ 
