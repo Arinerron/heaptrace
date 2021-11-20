@@ -240,6 +240,7 @@ int parse_args(int argc, char *argv[]) {
                     show_help(argv);
                 } else {
                     output_fd = _output_file;
+                    setbuf(output_fd, NULL);
                     OPT_NO_COLOR = 1;
                 }
                 break;
