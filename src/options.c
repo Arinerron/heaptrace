@@ -252,6 +252,10 @@ int parse_args(int argc, char *argv[]) {
         }
     }
 
+    if (getenv("FORCE_COLOR")) {
+        OPT_NO_COLOR = 0;
+    }
+
     if (!OPT_ATTACH_PID && optind == argc) {
         fatal("you must specify a binary to execute.\n");
         log(COLOR_WARN "hint: run `%s --help` to see the help menu.\n" COLOR_RESET, argv[0]);
