@@ -3,9 +3,9 @@
 #include "user-breakpoint.h"
 #include "debugger.h"
 
-
 UserBreakpoint *USER_BREAKPOINT_HEAD = 0;
 char *OPT_GDB_PATH = "/usr/bin/gdb";
+
 
 /* SECTION: TOKENIZATION */
 
@@ -212,11 +212,11 @@ UserBreakpoint *_parse_token_list(char *name, UserBreakpointToken **_cur_token) 
                 } else if (!strcmp(cur_token->value, "segfault") || !strcmp(cur_token->value, "sigsegv") || !strcmp(cur_token->value, "segv") || !strcmp(cur_token->value, "abort")) {
                     ubp->what = UBP_WHAT_SEGFAULT;
                     break;
-                } else if (!strcmp(cur_token->value, "main") || !strcmp(cur_token->value, "entry") || !strcmp(cur_token->value, "start") || !strcmp(cur_token->value, "_entry")) {
+                } else if (!strcmp(cur_token->value, "main") || !strcmp(cur_token->value, "entry") || !strcmp(cur_token->value, "start") || !strcmp(cur_token->value, "_entry") || !strcmp(cur_token->value, "_start")) {
                     ubp->what = UBP_WHAT_ENTRY;
                     break;
                 } else {
-                    EXPECT(0, "unknown 'what': please choose one of [oid, address, segfault/sigsegv/segv/abort, entry/main/start/_entry]");
+                    EXPECT(0, "unknown 'what': please choose one of [oid, address, segfault/sigsegv/segv/abort, entry/main/start/_start/_entry]");
                 }
             }
         } else if (cur_action == ACTION_ADDRESS) {
@@ -439,14 +439,6 @@ void fill_symbol_references(HeaptraceContext *ctx) {
 
     install_user_breakpoints(ctx);
 }
-
-
-/*static inline uint64_t _resolve_symbol(HeaptraceContext *ctx) {
-    // TODO: optimize! maybe fill in the "address" and NULL the "symbol_name" 
-    // when symbols are resolved at runtime. First make an array of all sym 
-    // names and merge with se_names
-    if (!strcmp(ctx->target_at_entry, "entry")) {}
-}*/
 
 
 static inline uint _check_breakpoint_logic(HeaptraceContext *ctx, UserBreakpoint *ubp) {
