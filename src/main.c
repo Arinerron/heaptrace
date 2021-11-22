@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     ASSERT(ctx, "alloc_ctx() returned NULL. Please report this.");
 
     char *chargv[argc + 1];
-    int start_at = parse_args(argc, argv);
+    int start_at = parse_args(ctx, argc, argv);
 
     if (!OPT_ATTACH_PID) {
         for (int i = start_at; i < argc; i++) {
@@ -82,23 +82,23 @@ int main(int argc, char *argv[]) {
         // TODO: refactor this into a check_target_access(ctx) function
         struct stat path_stat;
         if (access(ctx->target->path, F_OK) != 0) {
-            //fatal("unable to execute \"%s\": file does not exist.\n", ctx->target->path);
-            //log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
-            //exit(1);
+            fatal("unable to execute \"%s\": file does not exist.\n", ctx->target->path);
+            log(COLOR_WARN "hint: are you sure you specified the full path to the executable?\n" COLOR_RESET);
+            cleanup_and_exit(ctx, 1);
         } else if (access(ctx->target->path, R_OK) != 0) {
             fatal("permission to read target \"%s\" denied.\n", ctx->target->path);
             log(COLOR_WARN "hint: chmod +r %s\n" COLOR_RESET, ctx->target->path);
-            exit(1);
+            cleanup_and_exit(ctx, 1);
         } else if (access(ctx->target->path, X_OK) != 0) {
             fatal("permission to execute target \"%s\" denied.\n", ctx->target->path);
             log(COLOR_WARN "hint: chmod +x %s\n" COLOR_RESET, ctx->target->path);
-            exit(1);
+            cleanup_and_exit(ctx, 1);
         } else {
             stat(ctx->target->path, &path_stat);
             if (!S_ISREG(path_stat.st_mode)) {
                 fatal("unable to execute \"%s\": target is not a regular file.\n", ctx->target->path);
                 log(COLOR_WARN "hint: did you accidentally specify the path to a directory?\n" COLOR_RESET);
-                exit(1);
+                cleanup_and_exit(ctx, 1);
             }
         }
     } else {

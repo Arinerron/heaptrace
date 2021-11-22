@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "util.h"
 #include "proc.h"
 #include "chunk.h"
 #include "breakpoint.h"
@@ -94,5 +93,6 @@ typedef struct HeaptraceFile {
 
 void *free_ctx(HeaptraceContext *ctx);
 HeaptraceContext *alloc_ctx();
+void cleanup_and_exit(HeaptraceContext *ctx, int status);
 
 #endif

@@ -9,7 +9,8 @@ static const size_t CHUNK_ARR_SZ = 1000;
 
 
 static Chunk *_create_chunk(HeaptraceContext *ctx) {
-    // alloc a new block if necessary
+    return (Chunk *)calloc(1, sizeof(Chunk) + 1);
+    /*// alloc a new block if necessary
     if (ctx->chunk_arr_i == CHUNK_ARR_SZ || !ctx->chunk_arr) {
         ctx->chunk_arr_i = 0;
         ctx->chunk_arr = calloc(CHUNK_ARR_SZ, sizeof(Chunk));
@@ -19,7 +20,7 @@ static Chunk *_create_chunk(HeaptraceContext *ctx) {
     }
 
     Chunk *chunk = &(((Chunk *)ctx->chunk_arr)[ctx->chunk_arr_i++]);
-    return chunk;
+    return chunk;*/
 }
 
 
@@ -79,6 +80,19 @@ Chunk *alloc_chunk(HeaptraceContext *ctx, uint64_t ptr) {
 Chunk *find_chunk(HeaptraceContext *ctx, uint64_t ptr) {
     if (!ptr) return 0;
     return _find_chunk(ctx->chunk_root, ptr, 0);
+}
+
+
+static void _free_chunk_tree(Chunk *chunk) {
+    if (chunk->left) _free_chunk_tree(chunk->left);
+    if (chunk->right) _free_chunk_tree(chunk->right);
+    free(chunk);
+}
+
+
+void free_chunks(HeaptraceContext *ctx) {
+    if (ctx->chunk_root) _free_chunk_tree(ctx->chunk_root);
+    ctx->chunk_root = 0;
 }
 
 

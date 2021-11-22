@@ -163,12 +163,24 @@ HandlerLogMessageNote *insert_note(HeaptraceContext *ctx) {
 }
 
 
+void free_hlm_notes_head(HeaptraceContext *ctx) {
+    HandlerLogMessageNote *cur_note = ctx->hlm.notes_head;
+    HandlerLogMessageNote *_tmp_note;
+    while (cur_note) {
+        _tmp_note = cur_note->next;
+        free(cur_note);
+        cur_note = _tmp_note;
+    }
+}
+
+
 void concat_note(HandlerLogMessageNote *note, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     note->cur_width += vsnprintf(note->ptr + (note->cur_width + note->cur_width_color), MAX_NOTE_SIZE - (note->cur_width + note->cur_width_color), fmt, args);
     va_end(args);
 }
+
 
 void concat_note_color(HandlerLogMessageNote *note, const char *fmt, ...) {
     va_list args;

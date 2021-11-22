@@ -152,7 +152,7 @@ static void show_help(char *argv[]) {
 
 
 // returns the index of the first non-argument in argv
-int parse_args(int argc, char *argv[]) {
+int parse_args(HeaptraceContext *ctx, int argc, char *argv[]) {
     bool isCaseInsensitive = false;
     int opt;
 
@@ -165,7 +165,7 @@ int parse_args(int argc, char *argv[]) {
         switch (opt) {
             case 'h': {
                 show_help(argv);
-                exit(0);
+                cleanup_and_exit(ctx, 0);
                 break;
             }
 
@@ -259,7 +259,7 @@ int parse_args(int argc, char *argv[]) {
     if (!OPT_ATTACH_PID && optind == argc) {
         fatal("you must specify a binary to execute.\n");
         log(COLOR_WARN "hint: run `%s --help` to see the help menu.\n" COLOR_RESET, argv[0]);
-        exit(1);
+        cleanup_and_exit(ctx, 1);
     }
 
     return optind;

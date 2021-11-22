@@ -19,6 +19,7 @@ typedef struct Chunk {
 
 Chunk *alloc_chunk(HeaptraceContext *ctx, uint64_t ptr);
 Chunk *find_chunk(HeaptraceContext *ctx, uint64_t ptr); // TODO: deprecate this function
+void free_chunks(HeaptraceContext *ctx);
 uint64_t count_unfreed_bytes(Chunk *chunk);
 
 #endif

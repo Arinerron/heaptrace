@@ -1,4 +1,5 @@
 #include "util.h"
+#include "context.h"
 
 uint is_uint(char *str) {
     if (!str) return 0;
@@ -32,4 +33,11 @@ uint64_t str_to_uint64(char *buf) {
     
     char *_ptr;
     return strtoull(buf, &_ptr, base);
+}
+
+
+void cleanup_and_exit(HeaptraceContext *ctx, int status) {
+    free_ctx(ctx);
+    free_user_breakpoints();
+    exit(status);
 }

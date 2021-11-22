@@ -113,6 +113,7 @@ void print_handler_log_message_1(HeaptraceContext *ctx);
 void print_handler_log_message_2(HeaptraceContext *ctx);
 
 HandlerLogMessageNote *insert_note(HeaptraceContext *ctx);
+void free_hlm_notes_head(HeaptraceContext *ctx);
 void concat_note(HandlerLogMessageNote *note, const char *fmt, ...);
 void concat_note_color(HandlerLogMessageNote *note, const char *fmt, ...);
 

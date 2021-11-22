@@ -100,7 +100,7 @@ static void _expect_token(UserBreakpoint *ubp, UserBreakpointToken *cur_token, u
         memset(space_buf, ' ', cur_token->i);
         log(COLOR_ERROR "    %s^-- %s\n\n" COLOR_RESET, space_buf, msg);
         free(space_buf);
-        exit(1);
+        exit(1); // XXX: leaking unfreed ctx 
     }
 }
 

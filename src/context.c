@@ -35,7 +35,11 @@ void *free_ctx(HeaptraceContext *ctx) {
     free(ctx->target);
     free(ctx->libc);
 
+    free_chunks(ctx);
+
     free(ctx->hlm.warnings);
+    free_hlm_notes_head(ctx);
+    free(ctx->hlm.notes_head);
 
     free(ctx);
 }

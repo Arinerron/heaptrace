@@ -40,7 +40,7 @@ void install_breakpoint(HeaptraceContext *ctx, Breakpoint *bp) {
 
 // TODO: convert into linked list
 void _remove_breakpoint(HeaptraceContext *ctx, Breakpoint *bp, int opts) {
-    if (opts & BREAKPOINT_OPT_UNREGISTER) {
+    if (opts & BREAKPOINT_OPT_UNREGISTER || opts & BREAKPOINT_OPT_FREE) {
         for (int i = 0; i < BREAKPOINTS_COUNT; i++) {
             if (ctx->breakpoints[i] == bp) {
                 ctx->breakpoints[i] = 0;

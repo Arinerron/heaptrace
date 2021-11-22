@@ -362,9 +362,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         kill(ctx->pid, SIGINT);
     }
 
-    free_ctx(ctx);
-    free_user_breakpoints();
-    exit(0);
+    cleanup_and_exit(ctx, 0);
 }
 
 

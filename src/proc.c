@@ -50,6 +50,7 @@ ProcMapsEntry *build_pme_list(int pid) {
     FILE *f = fopen(mapspath, "r");
     if (!f) {
         warn("failed to open process maps (%s)\n", mapspath);
+        free(fname);
         return 0;
     }
 

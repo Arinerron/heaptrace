@@ -5,6 +5,6 @@
 
 extern char *symbol_defs_str;
 
-int parse_args(int argc, char *argv[]);
+int parse_args(HeaptraceContext *ctx, int argc, char *argv[]);
 void evaluate_symbol_defs(HeaptraceContext *ctx, Breakpoint **bps);
 //void evaluate_symbol_defs(SymbolEntry **ses, int sesc);
