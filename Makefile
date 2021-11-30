@@ -35,12 +35,16 @@ endif
 
 .PHONY: install
 install: $(TARGET)
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/local/man/man1
 	cp $< $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	
+	install -g 0 -o 0 -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/local/man/man1/
+	gzip $(DESTDIR)$(PREFIX)/local/man/man1/heaptrace.1
+
 
 .PHONY: uninstall
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(PREFIX)/local/man/man1/heaptrace.1.gz
 
 # Basic package information
 PKG_NAME=heaptrace

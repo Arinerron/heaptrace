@@ -1,0 +1,103 @@
+.\" Manpage for heaptrace.
+.\" Contact aaron1esau@gmail.com to correct errors or typos.
+.TH man 8 "30 November 2021" "2.2.8" "heaptrace man page"
+.SH NAME
+heaptrace \- helps visualize heap operations for pwn and debugging
+.SH SYNOPSIS
+.B heaptrace
+.I [options...]
+.B <target>
+.I [args...]
+
+
+.B heaptrace
+.I [options...]
+.B --attach <pid>
+
+.SH DESCRIPTION
+heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. Its purpose is to help visualize heap operations when debugging binaries or doing heap pwn.
+.SH OPTIONS
+.IP "-p <pid>, --attach <pid>, --pid <pid>"
+Tells heaptrace to attach to the specified
+.I pid 
+instead of running the binary from the
+.I target
+argument. Note that if you specify this argument 
+you do not have to specify
+.I target
+
+.IP "-b <expression>, --break=<expression>, --break-at=<expression>"
+Send SIGSTOP to the process when the specified 
+.I expression
+is satisfied and attach the GNU debugger 
+(gdb) to the process.
+
+This argument supports complex expressions. Please 
+See the documentation for more information: 
+https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints
+
+.IP "-B <expression>, --break-after=<expression>"
+Similar to 
+.I --break
+\. Replaces the tracer 
+process with gdb, but only after the heap function 
+returns. See the documentation for more information: 
+https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints
+
+.IP "-e <name=value>, --environ=<name=value>, --environment=<name=value>"
+Sets a single environmental variable. Useful for 
+setting runtime settings for the target such as 
+.B "LD_PRELOAD=./libc.so.6"
+without having them affect 
+heaptrace's runtime configuration. This option can 
+be used multiple times.
+
+.IP "-s <sym_defs>, --symbols=<sym_defs>"
+Override the values heaptrace detects for the 
+malloc/calloc/free/realloc/reallocarray symbols. 
+Useful if heaptrace fails to automatically 
+identify heap functions in a stripped binary. See 
+the wiki for more info.
+
+.IP "-F, --follow-fork, --follow"
+Tells heaptrace to detach the parent and follow 
+the child if the target calls fork(), vfork(), or 
+clone().
+
+The default behavior is to detatch the child and 
+only trace the parent.
+
+.IP "-G <path>, --gdb-path=<path>"
+Tells heaptrace to use the path to gdb specified 
+in 
+.I path
+instead of
+.B "/usr/bin/gdb"
+(default).
+
+.IP "-w <width>, --width=<width>, --term-width=<width>"
+Force a certain terminal 
+.I width
+\.
+
+.IP "-o <file>, --output=<file>"
+Write the heaptrace output to 
+.I file
+instead of 
+.B "/dev/stderr"
+(which is the default output path).
+
+.IP "-v, --verbose"
+Prints verbose information such as line numbers in
+source code given the required debugging info is
+stored in the ELF.
+
+.IP "-h, --help"
+Shows a help menu.
+
+.SH SEE ALSO
+.BR gdb(1)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Aaron Esau (aaron1esau@gmail.com)
