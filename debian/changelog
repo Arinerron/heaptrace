@@ -1,0 +1,5 @@
+heaptrace (2.2.8) bionic; urgency=medium
+
+  * Initial release to debian.
+
+ -- Aaron Esau (Debian) <aaron1esau@gmail.com>  Wed, 01 Dec 2021 18:58:10 +0000
