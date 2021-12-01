@@ -18,10 +18,14 @@ See the .deb and .rpm release files, and a pre-compiled binary at the [Releases 
 
 ## Arch User Repository (PKGBUILD)
 
-Use your preferred AUR helper to install the [`heaptrace-git`](https://aur.archlinux.org/packages/heaptrace-git/) package.
+Use your preferred AUR helper to install one of the two following packages:
+* [`heaptrace-git`](https://aur.archlinux.org/packages/heaptrace-git/) -- source package
+* [`heaptrace`](https://aur.archlinux.org/packages/heaptrace/) -- binary package
 
 ```
 $ trizen -S heaptrace-git
+... OR ...
+$ trizen -S heaptrace
 ```
 
 ## Compile from Source
