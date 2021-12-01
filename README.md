@@ -9,6 +9,8 @@ heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86\_6
 * can debug in gdb at any point ([`--break`](https://github.com/Arinerron/heaptrace/wiki/How-to-Create-Breakpoints))
 * supports all ELF64 (x86\_64) binaries regardless of ASLR or compiler settings ([including stripped binaries](https://github.com/Arinerron/heaptrace/wiki/Dealing-with-a-Stripped-Binary))
 
+[How are heaptrace and valgrind different?](https://github.com/Arinerron/heaptrace/wiki/Difference-between-heaptrace-and-valgrind)
+
 # Installation
 ## Official Releases
 
