@@ -44,8 +44,8 @@ You can specify arguments to heaptrace before specifying the binary name:
 
 ```
 Usage:
-  ./heaptrace [options...] <target> [args...]
-  ./heaptrace [options...] --attach <pid>
+  heaptrace [options...] <target> [args...]
+  heaptrace [options...] --attach <pid>
 
 Options:
   -p <pid>, --attach <pid>, --pid <pid>
