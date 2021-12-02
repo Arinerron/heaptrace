@@ -254,7 +254,7 @@ void print_handler_log_message_2(HeaptraceContext *ctx) {
         total_sz += 2 * (num_notes - 1); // ", ". num_notes is always >= 1 here
 
         ctx->hlm.cur_width = cur_width;
-        cur_width += log(repeat_char(calc_spaces_for_right_align(cur_width, total_sz), ' '));
+        cur_width += log("%s", repeat_char(calc_spaces_for_right_align(cur_width, total_sz), ' '));
         color_log(COLOR_LOG);
         cur_width += log("(");
 
