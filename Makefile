@@ -1,9 +1,19 @@
-TARGET = heaptrace
-PREFIX = /usr
-CC = gcc
-#CFLAGS = -g -Wall
-CCFLAGS = -O3 -fpie
-CFLAGS = -O3 -fpie
+# Basic package information
+PKG_NAME=heaptrace
+PKG_DESCRIPTION="helps visualize heap operations for pwn and debugging"
+PKG_VERSION:=$(shell dpkg-parsechangelog -S Version | sed -rne 's,([^-\+]+)+(\+dfsg)*.*,\1,p'i)
+UPSTREAM_PACKAGE:=$(PKG_NAME)_${PKG_VERSION}.orig.tar.gz
+PKG_RELEASE=0
+PKG_MAINTAINER="Aaron Esau \<contact@aaronesau.com\>"
+PKG_ARCH=x86_64
+PKG_ARCH_RPM=x86_64
+
+TARGET=$(PKG_NAME)
+PREFIX:=/usr
+CC:=gcc
+#CFLAGS:=-g -Wall
+CCFLAGS:=-O3 -fpie
+CFLAGS:=-O3 -fpie
 
 
 .PHONY: default all clean
@@ -26,6 +36,7 @@ clean:
 	-rm -f src/*.o
 	-rm -f $(TARGET)
 	-rm -f *.deb *.rpm
+	#-rm -f ../${UPSTREAM_PACKAGE}
 
 # PREFIX is environment variable, but if it is not set, then set default value
 ifeq ($(PREFIX),)
@@ -46,20 +57,14 @@ install: $(TARGET)
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1.gz
 
-# Basic package information
-PKG_NAME=heaptrace
-PKG_DESCRIPTION="helps visualize heap operations for pwn and debugging"
-PKG_VERSION=2.2.8.3
-PKG_RELEASE=0
-PKG_MAINTAINER="Aaron Esau \<contact@aaronesau.com\>"
-PKG_ARCH=x86_64
-PKG_ARCH_RPM=x86_64
-
 # These vars probably need no change
 PKG_DEB=${PKG_NAME}_${PKG_VERSION}-${PKG_RELEASE}_${PKG_ARCH}.deb
 PKG_RPM=${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}.${PKG_ARCH_RPM}.rpm
 FPM_OPTS=-s dir -n $(PKG_NAME) -v $(PKG_VERSION) --iteration $(PKG_RELEASE) -C $(TMPINSTALLDIR) --maintainer ${PKG_MAINTAINER} --description $(PKG_DESCRIPTION) -a $(PKG_ARCH)
 TMPINSTALLDIR=/tmp/$(PKG_NAME)-fpm-install
+
+dpkg: clean
+	tar cafv ../${UPSTREAM_PACKAGE} . --exclude debian --exclude .git
 
 # Generate a deb package using fpm
 deb:
