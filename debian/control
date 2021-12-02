@@ -9,7 +9,7 @@ Vcs-Git: https://github.com/Arinerron/heaptrace.git
 Vcs-Browser: https://github.com/Arinerron/heaptrace/
 
 Package: heaptrace
-Architecture: any
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: helps visualize heap operations for pwn and debugging
   heaptrace is a heap debugger for tracking glibc heap 
