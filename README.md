@@ -21,7 +21,7 @@ See the .deb and .rpm release files, and a pre-compiled binary at the [Releases 
 ```
 $ sudo add-apt-repository ppa:arinerron/heaptrace
 $ sudo apt-get update
-$ sudo apt install heaptrace
+$ sudo apt-get install heaptrace
 ```
 
 ## Arch User Repository (PKGBUILD)
