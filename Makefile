@@ -38,7 +38,7 @@ install: $(TARGET)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/man/man1
 	cp $< $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 	
-	install -g 0 -o 0 -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/share/man/man1/
+	install -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/share/man/man1/
 	gzip $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1
 
 

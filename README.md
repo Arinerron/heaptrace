@@ -16,6 +16,14 @@ heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86\_6
 
 See the .deb and .rpm release files, and a pre-compiled binary at the [Releases page](https://github.com/Arinerron/heaptrace/releases/).
 
+## Ubuntu PPA
+
+```
+$ sudo add-apt-repository ppa:arinerron/heaptrace
+$ sudo apt-get update
+$ sudo apt install heaptrace
+```
+
 ## Arch User Repository (PKGBUILD)
 
 Use your preferred AUR helper to install one of the two following packages:
