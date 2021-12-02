@@ -35,9 +35,9 @@ endif
 
 .PHONY: install
 install: $(TARGET)
+	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/man/man1
 	cp $< $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 	
-	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/man/man1
 	install -g 0 -o 0 -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/share/man/man1/
 	gzip $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1
 
@@ -49,7 +49,7 @@ uninstall:
 # Basic package information
 PKG_NAME=heaptrace
 PKG_DESCRIPTION="helps visualize heap operations for pwn and debugging"
-PKG_VERSION=2.2.8.1
+PKG_VERSION=2.2.8.2
 PKG_RELEASE=0
 PKG_MAINTAINER="Aaron Esau \<contact@aaronesau.com\>"
 PKG_ARCH=x86_64
