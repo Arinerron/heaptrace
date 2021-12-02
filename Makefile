@@ -49,7 +49,7 @@ uninstall:
 # Basic package information
 PKG_NAME=heaptrace
 PKG_DESCRIPTION="helps visualize heap operations for pwn and debugging"
-PKG_VERSION=2.2.8
+PKG_VERSION=2.2.8.1
 PKG_RELEASE=0
 PKG_MAINTAINER="Aaron Esau \<contact@aaronesau.com\>"
 PKG_ARCH=x86_64

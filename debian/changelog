@@ -1,4 +1,4 @@
-heaptrace (2.2.8) bionic; urgency=medium
+heaptrace (2.2.8.1) bionic; urgency=medium
 
   * Initial release to debian.
 
