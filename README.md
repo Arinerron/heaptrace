@@ -124,6 +124,10 @@ Options:
 	 stored in the ELF.
 
 
+  -V, --version
+	 Displays the current heaptrace version.
+
+
   -h, --help
 	 Shows this help menu.
 

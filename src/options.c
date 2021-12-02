@@ -16,6 +16,8 @@ char *symbol_defs_str = "";
 static struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
 
+    {"version", no_argument, NULL, 'V'},
+
     {"verbose", no_argument, NULL, 'v'},
     
     {"debug", no_argument, NULL, 'D'}, // hidden, for dev use only
@@ -74,7 +76,7 @@ static void show_help(char *argv[]) {
         "\n"
 
         PND "-b <expression>, --break=<expression>, --break-at=<expression>\n"
-        IND "Send SIGSTOP to the process when the specified \n"
+        IND "Sends SIGSTOP to the process when the specified \n"
         IND "`expression` is satisfied and attach the GNU debugger \n"
         IND "(gdb) to the process.\n"
         "\n"
@@ -102,7 +104,7 @@ static void show_help(char *argv[]) {
         "\n"
 
         PND "-s <sym_defs>, --symbols=<sym_defs>\n"
-        IND "Override the values heaptrace detects for the \n"
+        IND "Overrides the values heaptrace detects for the \n"
         IND "malloc/calloc/free/realloc/reallocarray symbols. \n"
         IND "Useful if heaptrace fails to automatically \n"
         IND "identify heap functions in a stripped binary. See \n"
@@ -132,7 +134,7 @@ static void show_help(char *argv[]) {
         "\n"
 
         PND "-o <file>, --output=<file>\n"
-        IND "Write the heaptrace output to `file` instead of \n"
+        IND "Writes the heaptrace output to `file` instead of \n"
         IND "/dev/stderr (which is the default output path).\n"
         "\n"
         "\n"
@@ -141,6 +143,11 @@ static void show_help(char *argv[]) {
         IND "Prints verbose information such as line numbers in\n"
         IND "source code given the required debugging info is\n"
         IND "stored in the ELF.\n"
+        "\n"
+        "\n"
+
+        PND "-V, --version\n"
+        IND "Displays the current heaptrace version.\n"
         "\n"
         "\n"
 
@@ -161,7 +168,7 @@ int parse_args(HeaptraceContext *ctx, int argc, char *argv[]) {
     }
 
     extern char **environ;
-    while ((opt = getopt_long(argc, argv, "+hvFDe:s:b:B:G:p:w:o:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "+hvVFDe:s:b:B:G:p:w:o:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'h': {
                 show_help(argv);
@@ -171,6 +178,12 @@ int parse_args(HeaptraceContext *ctx, int argc, char *argv[]) {
 
             case 'v': {
                 OPT_VERBOSE = 1;
+                break;
+            }
+            
+            case 'V': {
+                log("heaptrace version 2.2.8\n");
+                cleanup_and_exit(ctx, 0);
                 break;
             }
 
