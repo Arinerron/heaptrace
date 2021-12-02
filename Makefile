@@ -29,22 +29,22 @@ clean:
 
 # PREFIX is environment variable, but if it is not set, then set default value
 ifeq ($(PREFIX),)
-	PREFIX := /usr/local
+	PREFIX := /usr
 endif
 
 
 .PHONY: install
 install: $(TARGET)
-	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/local/man/man1
 	cp $< $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 	
-	install -g 0 -o 0 -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/local/man/man1/
-	gzip $(DESTDIR)$(PREFIX)/local/man/man1/heaptrace.1
+	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/share/man/man1
+	install -g 0 -o 0 -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/share/man/man1/
+	gzip $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1
 
 
 .PHONY: uninstall
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(PREFIX)/local/man/man1/heaptrace.1.gz
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET) $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1.gz
 
 # Basic package information
 PKG_NAME=heaptrace
