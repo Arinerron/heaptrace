@@ -462,7 +462,7 @@ void check_should_break(HeaptraceContext *ctx) {
         uint should_break = !!cur_ubp_nr;
         while (cur_ubp_nr) {
             if (_check_breakpoint_logic(ctx, cur_ubp_nr)) {
-                debug("user breakpoint \"%s\" evaluated to true. rip=%p, h_when=%d, i/count=%d/%d\n", cur_ubp_nr->name, ctx->h_rip, ctx->h_when, cur_ubp_nr->h_i + 1, cur_ubp_nr->count);
+                debug("user breakpoint \"%s\" evaluated to true. rip=" U64T ", h_when=%d, i/count=%zu/%zu\n", cur_ubp_nr->name, ctx->h_rip, ctx->h_when, cur_ubp_nr->h_i + 1, cur_ubp_nr->count);
                 if (!(++(cur_ubp_nr->h_i) >= cur_ubp_nr->count)) {
                     should_break = 0;
                 }

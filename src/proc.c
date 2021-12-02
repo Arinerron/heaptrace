@@ -68,13 +68,14 @@ ProcMapsEntry *build_pme_list(int pid) {
             break;
         }
 
-        fscanf(f, "%*s" WH);
-        fscanf(f, "%*s" WH);
-        fscanf(f, "%*x:%*x" WH); // 103:08
-        fscanf(f, "%*s" WH);
+        size_t dummy;
+        dummy = fscanf(f, "%*s" WH);
+        dummy = fscanf(f, "%*s" WH);
+        dummy = fscanf(f, "%*x:%*x" WH); // 103:08
+        dummy = fscanf(f, "%*s" WH);
 
         memset(cur_fname, 0, MAX_PATH_SIZE + 1);
-        fscanf(f, "%4096[^\n]s\n", cur_fname); // 18615725
+        dummy = fscanf(f, "%4096[^\n]s\n", cur_fname); // 18615725
         if (!pme || strcmp(pme->name, cur_fname)) { // if the name changed or first run
             pme = calloc(1, sizeof(ProcMapsEntry));
             pme->pet = PROCELF_TYPE_UNKNOWN;

@@ -34,7 +34,7 @@ static inline void update_terminal_width() {
 
 static char *repeat_char(size_t num, char c) {
     spaces_ptr = realloc(spaces_ptr, num + 2);
-    ASSERT(spaces_ptr, "Failed to realloc spaces_ptr. num=lu=%lu (ld=%ld), TERM_WIDTH=%d. Please report this.", num, num, TERM_WIDTH);
+    ASSERT(spaces_ptr, "Failed to realloc spaces_ptr. num=lu=%lu (ld=%ld), TERM_WIDTH=%zu. Please report this.", num, num, TERM_WIDTH);
     memset(spaces_ptr, c, num);
     spaces_ptr[num] = 0;
 
@@ -232,7 +232,7 @@ void print_handler_log_message_2(HeaptraceContext *ctx) {
         cur_width += log("%s= ", repeat_char(calc_spaces_for_position(cur_width, (_mult * TERM_WIDTH) / 12), ' '));
         
         color_log(COLOR_LOG_BOLD);
-        cur_width += log("%p ", ctx->hlm.ret_ptr);
+        cur_width += log(U64T " ", ctx->hlm.ret_ptr);
         color_log(COLOR_LOG);
     }
 

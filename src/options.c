@@ -147,7 +147,7 @@ static void show_help(char *argv[]) {
         PND "-h, --help\n"
         IND "Shows this help menu.\n"
         "\n"
-    ), argv[0], argv[0], argv[0]);
+    ), argv[0], argv[0]);
 }
 
 

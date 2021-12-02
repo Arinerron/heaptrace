@@ -373,7 +373,7 @@ char *get_libc_version(char *libc_path) {
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
     char *string = malloc(fsize + 1);
-    fread(string, 1, fsize, f);
+    size_t dummy = fread(string, 1, fsize, f);
     fclose(f);
     string[fsize] = 0;
 
