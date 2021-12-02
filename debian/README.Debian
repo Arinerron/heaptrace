@@ -1,6 +1,0 @@
-heaptrace for Debian
--------------------
-
-heaptrace is a heap debugger for tracking glibc heap operations in ELF64 (x86_64) binaries. Its purpose is to help visualize heap operations when debugging binaries or doing heap pwn.
-
- -- Aaron Esau <aaron1esau@gmail.com>  Wed, 01 Dec 2021 18:58:10 +0000

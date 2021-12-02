@@ -1,5 +1,5 @@
-heaptrace (2.2.8.2) bionic; urgency=medium
+heaptrace (2.2.8.3-1) unstable; urgency=medium
 
-  * Initial release to debian.
+  * Initial Debian release.
 
  -- Aaron Esau (Debian) <aaron1esau@gmail.com>  Wed, 01 Dec 2021 18:58:10 +0000

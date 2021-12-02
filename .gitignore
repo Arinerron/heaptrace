@@ -78,3 +78,7 @@ debhelper-build-stamp
 /*/debian/files
 /*/hello
 /tutorial-1/packageroot/usr
+debian/*.ex
+debian/*.EX
+*.ex
+*.EX

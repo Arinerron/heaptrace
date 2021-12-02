@@ -2,11 +2,10 @@ Source: heaptrace
 Section: utils
 Priority: optional
 Maintainer: Aaron Esau (Debian) <aaron1esau@gmail.com>
-Build-Depends: debhelper (>= 10)
+Build-Depends:
+ debhelper-compat (= 12),
 Standards-Version: 4.1.2
 Homepage: https://github.com/Arinerron/heaptrace
-Vcs-Git: https://github.com/Arinerron/heaptrace.git
-Vcs-Browser: https://github.com/Arinerron/heaptrace/
 
 Package: heaptrace
 Architecture: amd64
