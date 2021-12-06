@@ -418,7 +418,7 @@ const struct {
     {"reallocarray", pre_reallocarray, 3, post_reallocarray, {HLM_OPTION_SYMBOL, HLM_OPTION_SIZE, HLM_OPTION_SIZE}, 1}
 };
 
-void pre_analysis(HeaptraceContext *ctx) {
+static uint pre_analysis(HeaptraceContext *ctx) {
     int breakpoint_defs_c = sizeof(breakpoint_defs) / sizeof(breakpoint_defs[0]);
     size_t ubp_sym_refs_c = count_symbol_references((char **)0);
 
@@ -453,7 +453,7 @@ void pre_analysis(HeaptraceContext *ctx) {
     }
     
     debug("Looking up symbols...\n");
-    lookup_symbols(ctx->target, ctx->se_names);
+    return lookup_symbols(ctx->target, ctx->se_names);
 }
 
 
@@ -609,7 +609,14 @@ void start_debugger(HeaptraceContext *ctx) {
             first_run = 0;
 
             ctx->target->path = get_path_by_pid(ctx->pid);
-            pre_analysis(ctx);
+            if (!(ctx->target->path) || !pre_analysis(ctx)) {
+                warn("unable to analyze process that is not running.\n");
+                color_log(COLOR_WARN);
+                log("hint: are you sure you gave heaptrace the correct path to the binary file?\n");
+                color_log(COLOR_RESET);
+                end_debugger(ctx, 0);
+            }
+
 
             look_for_brk = ctx->target->is_dynamic;
             ctx->h_state = PROCESS_STATE_RUNNING;

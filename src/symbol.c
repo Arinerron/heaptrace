@@ -5,7 +5,7 @@
 
 #define _CHECK_BOUNDS(ptr, msg) { ASSERT((void *)(ptr) >= (void *)tbytes && (void *)(ptr) < (void *)tbytes + tfile_size, "invalid ELF; bounds check failed for " msg); }
 
-void lookup_symbols(HeaptraceFile *hf, char *names[]) {
+uint lookup_symbols(HeaptraceFile *hf, char *names[]) {
     // init list of symbolentries
     SymbolEntry *se_head = 0;
     SymbolEntry *cur_se = 0;
@@ -25,7 +25,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
     if (!se_head) {
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
 
     FILE *tfile = fopen(hf->path, "r");
@@ -33,14 +33,14 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
         fatal("failed to open target.\n");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
     if (fseek(tfile, 0, SEEK_END)) {
         fclose(tfile);
         fatal("failed to seek target.\n");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
     long tfile_size = ftell(tfile);
 
@@ -51,7 +51,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
         ASSERT(tbytes != 0, "mmap() failed in lookup_symbols");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
 
     fclose(tfile);
@@ -63,19 +63,19 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
         fatal("target is not an ELF executable.\n");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
     if (elf_hdr.e_ident[EI_CLASS] != ELFCLASS64) {
         fatal("target is not an ELF64 executable.\n");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
     if (elf_hdr.e_machine != EM_X86_64) {
         fatal("target is not x86-64.\n");
         free(hf->se_head);
         hf->se_head = 0;
-        return;
+        return 0;
     }
 
     size_t string_index = elf_hdr.e_shstrndx;
@@ -312,6 +312,7 @@ void lookup_symbols(HeaptraceFile *hf, char *names[]) {
     hf->se_head = se_head;
     hf->is_stripped = is_stripped;
     hf->is_dynamic = is_dynamic;
+    return 1;
 }
 
 
