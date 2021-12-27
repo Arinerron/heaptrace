@@ -1,0 +1,2 @@
+version=3
+https://github.com/Arinerron/heaptrace/releases .*/tags/(\d\S*)\.tar\.gz
