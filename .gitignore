@@ -82,3 +82,4 @@ debian/*.ex
 debian/*.EX
 *.ex
 *.EX
+debian/files
