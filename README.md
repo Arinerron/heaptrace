@@ -100,7 +100,7 @@ Options:
 	 the child if the target calls fork(), vfork(), or 
 	 clone().
 
-	 The default behavior is to detatch the child and 
+	 The default behavior is to detach the child and 
 	 only trace the parent.
 
 
