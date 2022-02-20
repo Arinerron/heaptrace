@@ -117,7 +117,7 @@ static void show_help(char *argv[]) {
         IND "the child if the target calls fork(), vfork(), or \n"
         IND "clone().\n"
         "\n"
-        IND "The default behavior is to detatch the child and \n"
+        IND "The default behavior is to detach the child and \n"
         IND "only trace the parent.\n"
         "\n"
         "\n"

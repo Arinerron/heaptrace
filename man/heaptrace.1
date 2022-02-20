@@ -1,6 +1,6 @@
 .\" Manpage for heaptrace.
 .\" Contact aaron1esau@gmail.com to correct errors or typos.
-.TH man 8 "30 November 2021" "2.2.x" "heaptrace man page"
+.TH man 1 "30 November 2021" "2.2.x" "heaptrace man page"
 .SH NAME
 heaptrace \- helps visualize heap operations for pwn and debugging
 .SH SYNOPSIS
@@ -64,7 +64,7 @@ Tells heaptrace to detach the parent and follow
 the child if the target calls fork(), vfork(), or 
 clone().
 
-The default behavior is to detatch the child and 
+The default behavior is to detach the child and 
 only trace the parent.
 
 .IP "-G <path>, --gdb-path=<path>"
