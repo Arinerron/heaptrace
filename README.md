@@ -87,6 +87,7 @@ Options:
 	 heaptrace's runtime configuration. This option can 
 	 be used multiple times.
 
+
   -s <sym_defs>, --symbols=<sym_defs>
 	 Override the values heaptrace detects for the 
 	 malloc/calloc/free/realloc/reallocarray symbols. 
