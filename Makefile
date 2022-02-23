@@ -50,7 +50,7 @@ install: $(TARGET)
 	cp $< $(DESTDIR)$(PREFIX)/bin/$(TARGET)
 	
 	install -m 0644 man/heaptrace.1 $(DESTDIR)$(PREFIX)/share/man/man1/
-	gzip $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1
+	gzip -f $(DESTDIR)$(PREFIX)/share/man/man1/heaptrace.1
 
 
 .PHONY: uninstall
