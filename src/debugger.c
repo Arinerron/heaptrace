@@ -322,11 +322,11 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         color_log(COLOR_ERROR);
         log("Process exited with signal ");
         color_log(COLOR_ERROR_BOLD);
-        log("%d", ctx->code);
+        log("%s", strsignal(ctx->code));
         color_log(COLOR_ERROR);
         log(" (");
         color_log(COLOR_ERROR_BOLD);
-        log("%s", strsignal(ctx->code));
+        log("%d", ctx->code);
         color_log(COLOR_ERROR);
         log(")");
         if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, GET_OID());

@@ -64,8 +64,10 @@ extern FILE *output_fd;
 #define verbose_heap(fmt, ...) { if (OPT_VERBOSE) { color_log(COLOR_LOG); log("\t^-- "); color_log(COLOR_LOG_ITALIC); fprintf(output_fd, (fmt "\n"), ##__VA_ARGS__);  color_log(COLOR_RESET); } }
 #define fatal_heap(msg, ...) { color_log(COLOR_ERROR_BOLD); log("\nheaptrace error: "); color_log(COLOR_ERROR); log(msg "\n", ##__VA_ARGS__); color_log(COLOR_RESET); }
 //#define warn2(msg) log("%sheaptrace warning: %s%s%s\n", COLOR_ERROR, COLOR_ERROR, (msg), COLOR_RESET) 
-#define warn_heap(msg, ...) { color_log(COLOR_WARN); ctx->hlm.cur_width = 0; log("\n    |-- warning: "); color_log(COLOR_WARN_BOLD); log(msg "\n", ##__VA_ARGS__); color_log(COLOR_RESET); }
-#define warn_heap2(msg, ...) { color_log(COLOR_WARN); log("    |   * " msg "\n",  ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define warn_heap(msg, ...) { color_log(COLOR_WARN); ctx->hlm.cur_width = 0; log("\n    |-- warning: "); color_log(COLOR_WARN_BOLD); log(msg, ##__VA_ARGS__); color_log(COLOR_RESET); }
+#define warn_heap2(msg, ...) { color_log(COLOR_WARN); log("    |   * " msg,  ##__VA_ARGS__); color_log(COLOR_RESET); }
+
+#define log_sym(sym) { color_log(COLOR_SYMBOL_BOLD); log("#"); color_log(COLOR_SYMBOL); log("%lu", (sym)); color_log(COLOR_LOG); }
 
 void describe_symbol(void *ptr);
 

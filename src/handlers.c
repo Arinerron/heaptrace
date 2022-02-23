@@ -28,9 +28,9 @@ static void _check_heap_ptr_retval(HeaptraceContext *ctx, uint64_t ptr) {
         if (pme->pet == PROCELF_TYPE_LIBC // possibly malloc hook?
                 || pme->pet == PROCELF_TYPE_BINARY // possibly GOT?
                 || pme->pet == PROCELF_TYPE_STACK) { // possibly return ptr?
-            warn_heap("return value is not a heap pointer");
-            warn_heap2("this indicates some form of heap corruption");
-            warn_heap2("pointer is inside of section \"%s\" (" U64T "-" U64T ")", pme->name, pme->base, pme->end);
+            warn_heap("return value is not a heap pointer\n");
+            warn_heap2("this indicates some form of heap corruption\n");
+            warn_heap2("pointer is inside of section \"%s\" (" U64T "-" U64T ")\n", pme->name, pme->base, pme->end);
         }
     }
 }
@@ -51,8 +51,10 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
     Chunk *chunk = alloc_chunk(ctx, ptr);
 
     if (chunk->state == STATE_MALLOC) {
-        warn_heap("calloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
-        warn_heap2("first calloc'd in operation " SYM, chunk->ops[STATE_MALLOC]);
+        warn_heap("calloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption\n");
+        warn_heap2("first calloc'd in operation ");
+        log_sym(chunk->ops[STATE_MALLOC]);
+        log("\n");
     }
 
     if (!ptr && !ctx->h_size) {
@@ -61,7 +63,7 @@ void post_calloc(HeaptraceContext *ctx, uint64_t ptr) {
          * by a successful call to malloc() with a size of zero, or by a 
          * successful call to calloc() with nmemb or size equal to zero.
          */
-        warn_heap("NULL return value indicates that an error happened");
+        warn_heap("NULL return value indicates that an error happened\n");
     } 
 
     _check_heap_ptr_retval(ctx, ptr);
@@ -89,8 +91,10 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
     Chunk *chunk = alloc_chunk(ctx, ptr);
 
     if (chunk->state == STATE_MALLOC) {
-        warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption");
-        warn_heap2("first allocated in operation " SYM, chunk->ops[STATE_MALLOC]);
+        warn_heap("malloc returned a pointer to a chunk that was never freed, which indicates some form of heap corruption\n");
+        warn_heap2("first allocated in operation ");
+        log_sym(chunk->ops[STATE_MALLOC]);
+        log("\n");
     }
 
     if (!ptr && !ctx->h_size) {
@@ -99,7 +103,7 @@ void post_malloc(HeaptraceContext *ctx, uint64_t ptr) {
          * by a successful call to malloc() with a size of zero, or by a 
          * successful call to calloc() with nmemb or size equal to zero.
          */
-        warn_heap("NULL return value indicates that an error happened");
+        warn_heap("NULL return value indicates that an error happened\n");
     } 
 
     _check_heap_ptr_retval(ctx, ptr);
@@ -124,15 +128,19 @@ void pre_free(HeaptraceContext *ctx, uint64_t iptr) {
     if (!chunk) {
         if (ctx->h_ptr) {
             // NOTE: the if(ptr) is because NULL is explicitly allowed in man page as NOOP
-            warn_heap("freeing a pointer to unknown chunk");
+            warn_heap("freeing a pointer to unknown chunk\n");
         }
     } else if (chunk->ptr != ctx->h_ptr) {
-        warn_heap("freeing a pointer that is inside of a chunk");
-        warn_heap2("container chunk malloc()'d in " SYM " @ " PTR " with size " SZ, chunk->ops[STATE_MALLOC], PTR_ARG(chunk->ptr), SZ_ARG(chunk->size));
+        warn_heap("freeing a pointer that is inside of a chunk\n");
+        warn_heap2("container chunk malloc()'d in " SYM " @ " PTR " with size " SZ "\n", chunk->ops[STATE_MALLOC], PTR_ARG(chunk->ptr), SZ_ARG(chunk->size));
     } else if (chunk->state == STATE_FREE) {
-        warn_heap("attempting to double free a chunk");
-        warn_heap2("allocated in operation " SYM, chunk->ops[STATE_MALLOC]);
-        warn_heap2("first freed in operation " SYM, chunk->ops[STATE_FREE]);
+        warn_heap("attempting to double free a chunk\n");
+        warn_heap2("allocated in operation ");
+        log_sym(chunk->ops[STATE_MALLOC]);
+        log("\n");
+        warn_heap2("first freed in operation ");
+        log_sym(chunk->ops[STATE_FREE]);
+        log("\n");
     } else {
         // all is good!
         ASSERT(chunk->state != STATE_UNUSED, "cannot free unused chunk");
@@ -161,13 +169,17 @@ void _pre_realloc(HeaptraceContext *ctx, int _type, uint64_t iptr, uint64_t nmem
     ctx->h_orig_chunk = alloc_chunk(ctx, ctx->h_ptr);
 
     if (ctx->h_orig_chunk && ctx->h_orig_chunk->state == STATE_FREE) {
-        warn_heap("attempting to %s a previously-freed chunk", _name);
-        warn_heap2("allocated in operation " SYM, ctx->h_orig_chunk->ops[STATE_MALLOC]);
-        warn_heap2("freed in operation " SYM, ctx->h_orig_chunk->ops[STATE_FREE]);
+        warn_heap("attempting to %s a previously-freed chunk\n", _name);
+        warn_heap2("allocated in operation ");
+        log_sym(ctx->h_orig_chunk->ops[STATE_MALLOC]);
+        log("\n");
+        warn_heap2("freed in operation ");
+        log_sym(ctx->h_orig_chunk->ops[STATE_FREE]);
+        log("\n");
     } else if (ctx->h_ptr && !ctx->h_orig_chunk) {
         // ptr && because https://github.com/Arinerron/heaptrace/issues/9
         //   0x0 is a special value
-        warn_heap("attempting to %s a chunk that was never allocated", _name);
+        warn_heap("attempting to %s a chunk that was never allocated\n", _name);
     }
 }
 
@@ -210,8 +222,10 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
             // the chunk moved
             new_chunk = alloc_chunk(ctx, new_ptr);
             if (new_chunk->state == STATE_MALLOC) {
-                warn_heap("%s returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption", _name);
-                warn_heap2("first allocated in operation " SYM, new_chunk->ops[STATE_MALLOC]);
+                warn_heap("%s returned a pointer to a chunk that was never freed (but not the original chunk), which indicates some form of heap corruption\n", _name);
+                warn_heap2("first allocated in operation ");
+                log_sym(new_chunk->ops[STATE_MALLOC]);
+                log("\n");
             }
 
             new_chunk->state = STATE_MALLOC;
@@ -232,7 +246,7 @@ static inline void _post_realloc(HeaptraceContext *ctx, int _type, uint64_t new_
                  * sets errno to ENOMEM, and leaves the original block.
                  */
                 if (ctx->h_size) {
-                    warn_heap("%s returned NULL even though size was not 0, indicating an error", _name);
+                    warn_heap("%s returned NULL even though size was not 0, indicating an error\n", _name);
                     _override_free = 0; // this one case does NOT free
                 } // else means it was freed; it returns NULL too. Leave this case alone.
             } else {

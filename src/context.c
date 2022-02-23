@@ -51,11 +51,14 @@ void show_stats(HeaptraceContext *ctx) {
     if (GET_OID() || unfreed_sum) {
         color_log(COLOR_LOG);
         log("Statistics:\n");
-        if (ctx->malloc_count) log("... mallocs count: " CNT "\n", ctx->malloc_count);
-        if (ctx->calloc_count) log("... callocs count: " CNT "\n", ctx->calloc_count);
-        if (ctx->free_count) log("... frees count: " CNT "\n", ctx->free_count);
-        if (ctx->realloc_count) log("... reallocs count: " CNT "\n", ctx->realloc_count);
-        if (ctx->reallocarray_count) log("... reallocarrays count: " CNT "\n", ctx->reallocarray_count);
+
+#define SHOW_STATISTIC(type, count) { if (count) { log("... " type " count: "); color_log(COLOR_LOG_BOLD); log("%lu", count); color_log(COLOR_LOG); log("\n"); } }
+
+        SHOW_STATISTIC("mallocs", ctx->malloc_count);
+        SHOW_STATISTIC("callocs", ctx->calloc_count);
+        SHOW_STATISTIC("frees", ctx->free_count);
+        SHOW_STATISTIC("reallocs", ctx->realloc_count);
+        SHOW_STATISTIC("reallocarrays", ctx->reallocarray_count);
         color_log(COLOR_RESET);
 
         if (unfreed_sum) {
