@@ -171,6 +171,7 @@ void free_hlm_notes_head(HeaptraceContext *ctx) {
         free(cur_note);
         cur_note = _tmp_note;
     }
+    ctx->hlm.notes_head = 0;
 }
 
 

@@ -20,9 +20,11 @@ HeaptraceContext *alloc_ctx() {
     return ctx;
 }
 
+
 void *free_ctx(HeaptraceContext *ctx) {
     debug("Freeing context %p...\n", ctx);
     
+    printf("\nasdf\n");
     free_pme_list(ctx->pme_head);
     free(ctx->libc_version);
     free(ctx->pre_analysis_bps);
@@ -39,7 +41,29 @@ void *free_ctx(HeaptraceContext *ctx) {
 
     free(ctx->hlm.warnings);
     free_hlm_notes_head(ctx);
-    free(ctx->hlm.notes_head);
 
     free(ctx);
+}
+
+
+void show_stats(HeaptraceContext *ctx) {
+    uint64_t unfreed_sum = count_unfreed_bytes(ctx->chunk_root);
+
+    if (GET_OID() || unfreed_sum) {
+        color_log(COLOR_LOG);
+        log("Statistics:\n");
+        if (ctx->malloc_count) log("... mallocs count: " CNT "\n", ctx->malloc_count);
+        if (ctx->calloc_count) log("... callocs count: " CNT "\n", ctx->calloc_count);
+        if (ctx->free_count) log("... frees count: " CNT "\n", ctx->free_count);
+        if (ctx->realloc_count) log("... reallocs count: " CNT "\n", ctx->realloc_count);
+        if (ctx->reallocarray_count) log("... reallocarrays count: " CNT "\n", ctx->reallocarray_count);
+        color_log(COLOR_RESET);
+
+        if (unfreed_sum) {
+            color_log(COLOR_ERROR);
+            log("... unfreed bytes: " SZ_ERR "\n", SZ_ARG(unfreed_sum));
+        }
+    }
+
+    log(COLOR_RESET);
 }

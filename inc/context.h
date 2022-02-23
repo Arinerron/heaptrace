@@ -95,4 +95,8 @@ void *free_ctx(HeaptraceContext *ctx);
 HeaptraceContext *alloc_ctx();
 void cleanup_and_exit(HeaptraceContext *ctx, int status);
 
+#define GET_OID() (ctx->malloc_count + ctx->calloc_count + ctx->free_count + ctx->realloc_count + ctx->reallocarray_count)
+
+void show_stats(HeaptraceContext *ctx);
+
 #endif

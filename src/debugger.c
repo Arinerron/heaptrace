@@ -22,9 +22,8 @@ static int in_breakpoint = 0;
 
 int OPT_FOLLOW_FORK = 0;
 
-void _check_breakpoints(HeaptraceContext *ctx) {
-    struct user_regs_struct regs;
-    PTRACE(PTRACE_GETREGS, ctx->pid, NULL, &regs);
+void _check_breakpoints(HeaptraceContext *ctx, struct user_regs_struct *regs_ptr) {
+    struct user_regs_struct regs = *regs_ptr;
     uint64_t reg_rip = (uint64_t)regs.rip - 1;
 
     int _was_bp = 0;
@@ -314,7 +313,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         _show_newline = 1;
 
         // we keep this logic in case someone makes one of the free/malloc hooks call /bin/sh :)
-        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, GET_OID());
         log(".");
         color_log(COLOR_RESET);
         log(" ");
@@ -330,7 +329,7 @@ void end_debugger(HeaptraceContext *ctx, int should_detach) {
         log("%s", strsignal(ctx->code));
         color_log(COLOR_ERROR);
         log(")");
-        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, get_oid(ctx));
+        if (ctx->between_pre_and_post) log(" while executing " COLOR_ERROR_BOLD "%s" COLOR_ERROR " (" SYM COLOR_ERROR ")", ctx->between_pre_and_post, GET_OID());
         log(".");
         color_log(COLOR_RESET);
         log(" ");
@@ -527,7 +526,7 @@ int start_process(HeaptraceContext *ctx) {
     if (!child) {
         // disable ASLR
         if (personality(ADDR_NO_RANDOMIZE) == -1) {
-            warn("failed to disable aslr for child\n");
+            warn("failed to disable ASLR for child\n");
         }
 
         if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1) {
@@ -589,8 +588,7 @@ void start_debugger(HeaptraceContext *ctx) {
 
 
     //ctx->target->is_dynamic = any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC) || any_se_type(ctx->target_se_head, SE_TYPE_DYNAMIC_PLT);
-    int look_for_brk;// = ctx->target->is_dynamic;
-
+    
     //ctx->should_map_syms = !ctx->target->is_dynamic;
     int set_auxv_bp = !OPT_ATTACH_PID; // XXX: this is confusing. refactor later.
     ctx->should_map_syms = !set_auxv_bp;
@@ -617,8 +615,6 @@ void start_debugger(HeaptraceContext *ctx) {
                 end_debugger(ctx, 0);
             }
 
-
-            look_for_brk = ctx->target->is_dynamic;
             ctx->h_state = PROCESS_STATE_RUNNING;
         }
 
@@ -665,7 +661,7 @@ void start_debugger(HeaptraceContext *ctx) {
             end_debugger(ctx, 0);
         } else if (ctx->status == 0x57f) { /* status SIGTRAP */ 
             ctx->h_state = PROCESS_STATE_RUNNING;
-            _check_breakpoints(ctx);
+            _check_breakpoints(ctx, &regs);
             if (!KEEP_RUNNING) {
                 debug("received a SIGTRAP and !KEEP_RUNNING\n");
                 break;
