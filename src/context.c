@@ -24,7 +24,6 @@ HeaptraceContext *alloc_ctx() {
 void *free_ctx(HeaptraceContext *ctx) {
     debug("Freeing context %p...\n", ctx);
     
-    printf("\nasdf\n");
     free_pme_list(ctx->pme_head);
     free(ctx->libc_version);
     free(ctx->pre_analysis_bps);
