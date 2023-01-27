@@ -9,11 +9,11 @@ PKG_ARCH=x86_64
 PKG_ARCH_RPM=x86_64
 
 TARGET=$(PKG_NAME)
-PREFIX:=/usr
-CC:=gcc
-#CFLAGS:=-g -Wall
-CCFLAGS:=-O3 -fpie
-CFLAGS:=-O3 -fpie
+PREFIX?=/usr
+CC?=gcc
+#CFLAGS?=-g -Wall
+CCFLAGS?=-O3 -fpie
+CFLAGS?=-O3 -fpie
 
 
 .PHONY: default all clean
@@ -37,11 +37,6 @@ clean:
 	-rm -f $(TARGET)
 	-rm -f *.deb *.rpm
 	#-rm -f ../${UPSTREAM_PACKAGE}
-
-# PREFIX is environment variable, but if it is not set, then set default value
-ifeq ($(PREFIX),)
-	PREFIX := /usr
-endif
 
 
 .PHONY: install
